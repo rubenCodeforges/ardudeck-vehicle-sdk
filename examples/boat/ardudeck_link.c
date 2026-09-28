@@ -42,7 +42,7 @@ static const uint16_t MISSION_CMDS[] = {AD_NAV_WAYPOINT, AD_NAV_RETURN_TO_LAUNCH
 
 static const ad_mode_t MODES[] = {
   {NAV_IDLE,      "Idle",      0},
-  {NAV_RUNNING,   "Running",   0},
+  {NAV_RUNNING,   "Running",   AD_MODE_MISSION},  /* the mode that flies a plan */
   {NAV_HOLDING,   "Holding",   0},
   {NAV_PAUSED,    "Paused",    0},
   {NAV_RETURNING, "Returning", 0},

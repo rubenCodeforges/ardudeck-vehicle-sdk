@@ -270,6 +270,24 @@ static void manifest_tick(void) {
 #define MAV_RESULT_DENIED      2
 #define MAV_RESULT_UNSUPPORTED 3
 
+#if AD_WITH_COMMANDS
+/**
+ * Is this one of the modes the firmware actually published?
+ *
+ * A ground station that does not read the declared table has to guess, and the usual
+ * guess is an ArduPilot mode number for the frame type. Acting on it would move the
+ * vehicle into whatever this firmware happens to number the same. An undeclared id is
+ * refused instead, which turns a silent wrong mode into a visible refusal.
+ */
+static bool mode_declared(uint16_t id) {
+  const ad_capability_t *c = cfg()->caps;
+  if (!c || !c->modes) return false;
+  for (uint8_t i = 0; i < c->mode_count; i++) {
+    if (c->modes[i].id == id) return true;
+  }
+  return false;
+}
+
 /**
  * Hand the vendor the argument the command is about, wherever MAVLink put it.
  *
@@ -291,6 +309,7 @@ static bool normalise_args(uint16_t cmd, float *args) {
   }
   return true;
 }
+#endif /* AD_WITH_COMMANDS: both helpers are only reachable from the command paths */
 
 static void handle_command(const uint8_t *p, uint16_t len) {
 #if AD_WITH_COMMANDS
@@ -306,6 +325,14 @@ static void handle_command(const uint8_t *p, uint16_t len) {
 
   if (!normalise_args(cmd, args)) {
     ad_command_ack(cmd, MAV_RESULT_ACCEPTED);
+    return;
+  }
+
+  if (cmd == AD_CMD_SET_MODE && !mode_declared((uint16_t)args[0])) {
+    /* Stamped so the legacy SET_MODE that follows does not repeat the complaint. */
+    ad_g.last_set_mode = ad_g.now ? ad_g.now : 1;
+    ad_command_ack(cmd, MAV_RESULT_DENIED);
+    ad_statustext(AD_WARNING, "Unknown mode, ignored");
     return;
   }
 
@@ -343,6 +370,10 @@ static void handle_set_mode(const uint8_t *p, uint16_t len) {
 
   float args[7] = {0};
   args[0] = (float)ad_get_u32(p, len, 0);
+  if (!mode_declared((uint16_t)args[0])) {
+    ad_statustext(AD_WARNING, "Unknown mode, ignored");
+    return;
+  }
 
   char why[64];
   why[0] = '\0';
@@ -480,6 +511,18 @@ static void feed(uint8_t b) {
       uint8_t extra;
       if (!ad_known_extra(r->msgid, &extra)) return;
       if (ad_crc16(&extra, 1, r->crc) != got) return;
+
+      /*
+       * A heartbeat only counts as contact when it came from a ground station. On a
+       * shared or broadcast link every vehicle is heartbeating too, and learning one of
+       * those as the peer would aim telemetry at another vehicle and hold the failsafe
+       * open with nobody watching. MAV_TYPE_GCS is byte 4 of the payload.
+       */
+      if (r->msgid == AD_MSG_HEARTBEAT.id) {
+        if (ad_get_u8(r->payload, r->length, 4) != AD_MAV_TYPE_GCS) return;
+        ad_learn_peer(r->sysid, r->compid);
+        return; /* nothing in a heartbeat is ours to act on */
+      }
 
       ad_learn_peer(r->sysid, r->compid);
       dispatch(r->msgid, r->payload, r->length);

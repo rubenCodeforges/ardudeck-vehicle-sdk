@@ -144,7 +144,7 @@ void ardudeck_rate_limit(ad_stream_t stream, float max_hz);
 ```
 
 `AD_STREAM_POSITION`, `AD_STREAM_ATTITUDE`, `AD_STREAM_STATUS`, `AD_STREAM_RC`.
-`0.0f` turns a stream off. See [transports.md](transports.md) for defaults.
+`0.0f` turns a stream off. See [Links](transports.md) for defaults.
 
 ---
 
@@ -208,6 +208,32 @@ typedef struct {
 | `AD_MODE_LOCAL_ONLY` | Exists, but the ground station may not switch into it |
 | `AD_MODE_ARMED_ONLY` | Greyed out while disarmed |
 | `AD_MODE_TERMINAL` | Reached, not chosen. A finished or failed state |
+| `AD_MODE_MISSION` | The mode that flies a mission. Mark exactly one |
+
+### Mark the mode that flies a mission
+
+If you declare `AD_FEAT_MISSION`, mark one mode with `AD_MODE_MISSION`:
+
+```c
+static const ad_mode_t MODES[] = {
+  {  0, "Idle",    0 },
+  {  1, "Manual",  0 },
+  {  2, "Mission", AD_MODE_MISSION },   /* the one that flies a plan */
+};
+```
+
+Starting a mission means selecting that mode first, and ArduDeck reads this to know
+which of *your* numbers to send. Without it, the only thing left to go on is the frame
+type, which means an ArduPilot mode number on firmware that never agreed to ArduPilot's
+numbering: a boat would be told to enter `10`, Rover's AUTO, and whatever you happen to
+number 10 is what would run.
+
+The SDK also refuses any mode id you did not declare, on both `DO_SET_MODE` and the
+legacy `SET_MODE`, and answers with a refusal the operator can read. A ground station
+that guesses gets a visible no rather than a silent wrong mode.
+
+`ardudeck-conform` fails rung 1 if you declare missions and mark no mode, or mark more
+than one.
 
 ---
 
@@ -367,6 +393,17 @@ bool on_mission(const ad_wp_t *items, uint16_t count,
                 char *why, size_t why_len, void *user);
 ```
 
+### How the items are numbered
+
+`seq` is the position in the list, counting from zero, and `count` is how many there are.
+The first item is the first thing the vehicle does.
+
+ArduDeck does not insert a home item at position 0. ArduPilot's own mission format does,
+which is where the question usually comes from, but a vehicle on this SDK is sent the
+plan exactly as the operator drew it: `items[0]` is waypoint 1 on screen. A jump target
+therefore means the same index you see in the array, and `active_item` in
+`ardudeck_status` is that same index.
+
 You get **the whole plan at once**, ordered, with no gaps, already filtered to the
 commands you declared. `items` is valid only during the call, so copy what you keep.
 
@@ -472,7 +509,7 @@ your callback once however it arrived.
 
 ## Calibration
 
-Covered properly in [calibration.md](calibration.md). The signatures:
+Covered properly in [Calibration](calibration.md). The signatures:
 
 ```c
 bool on_calibrate(const char *cal_id, ad_cal_action_t action,

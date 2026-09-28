@@ -46,11 +46,22 @@ Pick whichever matches your project.
 
 | Your build | What to do |
 |---|---|
-| **ESP-IDF** | Copy the repo into `components/ardudeck/`, or add it to `idf_component.yml`. |
+| **ESP-IDF** | Copy the repo into `components/ardudeck/`, or add it to `idf_component.yml`, then add `ardudeck` to `REQUIRES` in your own component's `CMakeLists.txt`. |
 | **PlatformIO** | `lib_deps = https://github.com/rubenCodeforges/ardudeck-vehicle-sdk` |
 | **Arduino** | Drop the folder into `libraries/`. |
 | **CMake** | `add_subdirectory(ardudeck-vehicle-sdk)` then link `ardudeck::sdk`. |
 | **Makefile, anything else** | Compile `src/*.c` and put `include/` on your include path. That is the whole integration. |
+
+On ESP-IDF the `REQUIRES` line is the step people miss. Without it the component builds
+but your own file cannot see `ardudeck.h`:
+
+```cmake
+idf_component_register(
+    SRCS "main.c" "mavlink_out.c"
+    INCLUDE_DIRS "."
+    REQUIRES ardudeck          # <- without this, ardudeck.h is not on the include path
+)
+```
 
 It is C99 and needs no configuration to build. If it does not compile, that is a bug in
 the SDK and worth reporting, not something for you to work around.
@@ -155,7 +166,7 @@ static void sink(const uint8_t *buf, size_t len, void *user) {
 Broadcast UDP to port 14550. Nothing needs configuring at either end, because ArduDeck
 listens and answers whoever it hears.
 
-See [transports.md](transports.md) for radio modems, rate limits and the rest.
+See [Links](transports.md) for radio modems, rate limits and the rest.
 
 ---
 
@@ -172,7 +183,7 @@ make -C conformance
 ./conformance/ardudeck-conform --serial /dev/ttyUSB0:57600
 ```
 
-See [troubleshooting.md](troubleshooting.md) if you would rather read symptoms.
+See [When it is not working](troubleshooting.md) if you would rather read symptoms.
 
 ---
 
@@ -219,7 +230,7 @@ pressing one sends a number that means something else on your firmware.
 static const ad_mode_t MODES[] = {
   /*  id, name shown to the pilot, flags */
   {  0, "Idle",      0 },
-  {  1, "Running",   0 },
+  {  1, "Running",   AD_MODE_MISSION },      /* the one that flies a plan */
   {  4, "Returning", 0 },
   {  6, "Manual",    AD_MODE_LOCAL_ONLY },   /* exists, but not ours to command */
 };
@@ -268,12 +279,12 @@ static const ad_capability_t CAPS = {
 
 | You want to | Read |
 |---|---|
-| Add parameters, missions or commands | [contract.md](contract.md) |
-| Look up a function or struct field | [api.md](api.md) |
-| Put your compass routine on ArduDeck's screen | [calibration.md](calibration.md) |
-| Find out why something is not working | [troubleshooting.md](troubleshooting.md) |
-| Choose or configure a link | [transports.md](transports.md) |
-| Prove it before you ship | [conformance.md](conformance.md) |
+| Add parameters, missions or commands | [The contract](contract.md) |
+| Look up a function or struct field | [API reference](api.md) |
+| Put your compass routine on ArduDeck's screen | [Calibration](calibration.md) |
+| Find out why something is not working | [When it is not working](troubleshooting.md) |
+| Choose or configure a link | [Links](transports.md) |
+| Prove it before you ship | [ardudeck-conform](conformance.md) |
 
 ---
 

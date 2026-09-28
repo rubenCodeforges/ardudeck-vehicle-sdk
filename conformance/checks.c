@@ -37,6 +37,7 @@ static void absorb(session_t *s, const mav_msg_t *m) {
   if (m->id == AD_MSG_HEARTBEAT.id) {
     v->heartbeats++;
     v->vehicle_type = mav_u8(m, 4);
+    v->custom_mode = mav_u32(m, 0);
     v->autopilot = mav_u8(m, 5);
     uint32_t t = now_ms();
     if (!v->first_heartbeat_ms) v->first_heartbeat_ms = t;
@@ -56,6 +57,13 @@ static void absorb(session_t *s, const mav_msg_t *m) {
     v->last_lon = mav_i32(m, 8);
     if (v->gps_raws > 0 && v->fix < 2) v->position_without_fix = true;
     if (v->last_lat == 0 && v->last_lon == 0) v->zero_island = true;
+    return;
+  }
+
+  if (m->id == AD_MSG_CAL_PROGRESS.id) { v->cal_progress_count++; return; }
+  if (m->id == AD_MSG_CAL_RESULT.id) {
+    v->cal_result_seen = true;
+    v->cal_result_ok = mav_u8(m, 4);
     return;
   }
 
@@ -161,12 +169,36 @@ static void absorb(session_t *s, const mav_msg_t *m) {
   }
 }
 
+/**
+ * Be a ground station, not a request generator.
+ *
+ * ArduDeck heartbeats at 1 Hz for as long as it is connected, and a vehicle's link
+ * failsafe is fed by exactly that and often by nothing else. Sending this from inside the
+ * receive loops means it keeps going for the whole session whatever rung is running, so
+ * the vehicle sees the traffic pattern it will actually meet in the field.
+ *
+ * The bytes are ArduDeck's own: MAV_TYPE_GCS, MAV_AUTOPILOT_INVALID, MAV_STATE_ACTIVE.
+ */
+static void beat(session_t *s) {
+  uint32_t t = now_ms();
+  if (s->last_hb_ms != 0 && (uint32_t)(t - s->last_hb_ms) < 1000) return;
+  s->last_hb_ms = t ? t : 1;
+  uint8_t hb[9];
+  memset(hb, 0, sizeof hb);
+  hb[4] = 6; /* MAV_TYPE_GCS */
+  hb[5] = 8; /* MAV_AUTOPILOT_INVALID */
+  hb[7] = 4; /* MAV_STATE_ACTIVE */
+  hb[8] = 3; /* MAVLink 2 */
+  send_msg(s, AD_MSG_HEARTBEAT.id, hb, sizeof hb);
+}
+
 void pump(session_t *s, int ms) {
   uint32_t deadline = now_ms() + (uint32_t)ms;
   uint8_t buf[1024];
   mav_msg_t msg;
 
   while ((int32_t)(now_ms() - deadline) < 0) {
+    beat(s);
     int n = link_recv(s->link, buf, sizeof buf, 20);
     if (n <= 0) continue;
     for (int i = 0; i < n; i++) {
@@ -181,6 +213,7 @@ bool wait_for(session_t *s, uint32_t msgid, int timeout_ms, mav_msg_t *out) {
   mav_msg_t msg;
 
   while ((int32_t)(now_ms() - deadline) < 0) {
+    beat(s);
     int n = link_recv(s->link, buf, sizeof buf, 20);
     if (n <= 0) continue;
     for (int i = 0; i < n; i++) {
@@ -228,7 +261,9 @@ void check_rung0(session_t *s, rung_t *r) {
               v->autopilot);
   }
 
-  if (v->attitudes == 0) rung_warn(r, "no ATTITUDE, so the horizon will not move");
+  /* Skipping ATTITUDE is advice in the docs for a vehicle that knows heading and not
+     attitude, so it is reported as a consequence rather than as something to fix. */
+  if (v->attitudes == 0) rung_note(r, "no ATTITUDE, so the horizon will not move");
   if (v->gps_raws == 0 && v->positions == 0) {
     rung_fail(r, "no position of any kind");
   }
@@ -241,7 +276,7 @@ void check_rung0(session_t *s, rung_t *r) {
     rung_fail(r, "reported latitude 0, longitude 0, which is a real place in the sea");
   }
 
-  rung_summary(r, "heartbeat %.1f Hz, %d position, %d attitude, fix %u", (double)hz,
+  rung_summary(r, "heartbeat %.1f Hz, position x%d, attitude x%d, GPS fix %u", (double)hz,
                v->positions + v->gps_raws, v->attitudes, v->fix);
 }
 
@@ -298,6 +333,22 @@ void check_rung1(session_t *s, rung_t *r) {
   }
 
   if (v->features & AD_FEAT_MISSION_BIT) {
+    /*
+     * A ground station has to select the mission mode before it starts a mission. With
+     * no mode marked it can only guess from the frame type, and the usual guess is an
+     * ArduPilot mode number this firmware never agreed to.
+     */
+    int mission_modes = 0;
+    for (int i = 0; i < v->mode_count && i < MAX_MODES; i++) {
+      if (v->modes[i].seen && (v->modes[i].flags & 0x08)) mission_modes++;
+    }
+    if (mission_modes == 0) {
+      rung_fail(r, "declares missions but no mode is marked AD_MODE_MISSION, so a ground "
+                   "station cannot tell which mode flies one");
+    } else if (mission_modes > 1) {
+      rung_fail(r, "%d modes are marked AD_MODE_MISSION; exactly one flies the mission",
+                mission_modes);
+    }
     if (!v->have_mission_cmds || v->mission_cmds_seen == 0) {
       rung_fail(r, "declares missions but lists no mission commands");
     }
@@ -361,8 +412,10 @@ void check_rung2(session_t *s, rung_t *r) {
       if (named < 3) snprintf(first_no_help[named++], 17, "%s", p->name);
       no_help++;
     }
-    /* An empty unit is legitimate for a pure gain, so this is a warning. */
-    if (p->unit[0] == '\0') no_unit++;
+    /* An empty unit is legitimate for a pure gain, so this is a warning. A dropdown has
+       no unit by construction (AD_ENUM sets it empty), so counting it would be a warning
+       the implementer has no way to clear. */
+    if (p->unit[0] == '\0' && !(p->flags & 0x04)) no_unit++;
     if (!(p->min_value < p->max_value)) bad_range++;
     if ((p->flags & 0x04) && p->options_seen < p->option_count) missing_options++;
   }
@@ -726,17 +779,93 @@ void check_calibration(session_t *s, rung_t *r) {
     ctl[1] = v->compid ? v->compid : 1;
     ctl[2] = 0; /* start */
     memcpy(&ctl[3], c->id, strlen(c->id));
+    v->cal_progress_count = 0;
+    v->cal_result_seen = false;
     send_msg(s, AD_MSG_CAL_CONTROL.id, ctl, sizeof ctl);
     pump(s, 800);
 
-    ctl[2] = 2; /* cancel, immediately */
-    send_msg(s, AD_MSG_CAL_CONTROL.id, ctl, sizeof ctl);
-    pump(s, 800);
-    rung_note(r, "started and cancelled '%s'; a cancel must always be honoured", c->id);
+    bool started = v->cal_progress_count > 0;
+    bool finished_by_itself = v->cal_result_seen;
+
+    if (!started && !finished_by_itself) {
+      /* A positional routine waits for someone to hold the vehicle still, and there is
+         nobody here to do it, so silence is expected rather than wrong. The cancel is
+         still sent below so it cannot be left running. */
+      ctl[2] = 2;
+      send_msg(s, AD_MSG_CAL_CONTROL.id, ctl, sizeof ctl);
+      pump(s, 400);
+      rung_note(r, "'%s' reported nothing in the start window, which is what a routine "
+                   "waiting for a person looks like", c->id);
+    } else if (finished_by_itself) {
+      /* It ran to completion inside the start window, so a cancel now cancels nothing
+         and proves nothing. Saying otherwise would be a green light nobody earned. */
+      rung_note(r, "'%s' finished on its own before a cancel could be tried", c->id);
+    } else {
+      int before = v->cal_progress_count;
+      v->cal_result_seen = false;
+      ctl[2] = 2; /* cancel, immediately */
+      send_msg(s, AD_MSG_CAL_CONTROL.id, ctl, sizeof ctl);
+      pump(s, 800);
+      int after = v->cal_progress_count - before;
+
+      /* Honouring a cancel means stopping: either it reports how it ended, or it at
+         least stops talking. Still streaming progress means it ignored the operator. */
+      if (v->cal_result_seen && v->cal_result_ok == 0) {
+        rung_note(r, "started '%s' and cancelled it; it reported the cancelled result",
+                  c->id);
+      } else if (v->cal_result_seen) {
+        rung_fail(r, "'%s' answered a cancel with a success; a cancel is not a save",
+                  c->id);
+      } else if (after > 0) {
+        rung_fail(r, "'%s' kept running after a cancel (%d more progress messages)",
+                  c->id, after);
+      } else {
+        rung_note(r, "started '%s' and cancelled it; it stopped", c->id);
+      }
+    }
   } else if (v->cals_seen > 0) {
     rung_note(r, "every calibration needs motors or a person at the vehicle, so none "
                  "was started");
   }
 
   rung_summary(r, "%d declared", v->cals_seen);
+}
+
+/* ─── link, the quiet window ───────────────────────────────────────────────── */
+
+/**
+ * What a ground station looks like while somebody is watching a mission fly.
+ *
+ * Nothing is requested for ten seconds. The only thing on the wire is the 1 Hz GCS
+ * heartbeat, which is the normal steady state of a flight and the exact case that gets
+ * skipped when a tool only ever tests request/reply. A vehicle whose link failsafe is fed
+ * by something other than "a ground station is present" reacts here: it decides it is
+ * alone, and changes mode to come home.
+ */
+void check_link(session_t *s, rung_t *r) {
+  vehicle_t *v = &s->v;
+  uint32_t mode_before = v->custom_mode;
+  int beats_before = v->heartbeats;
+  int telemetry_before = v->positions + v->gps_raws;
+
+  /* No requests. pump keeps the heartbeat going and absorbs whatever arrives. */
+  pump(s, 10000);
+
+  int beats = v->heartbeats - beats_before;
+  int telemetry = v->positions + v->gps_raws - telemetry_before;
+
+  if (beats == 0) {
+    rung_fail(r, "went silent when nothing was being requested of it");
+  }
+  if (telemetry == 0) {
+    rung_fail(r, "stopped sending telemetry when nothing was being requested of it");
+  }
+  if (v->custom_mode != mode_before) {
+    rung_fail(r, "changed mode from %u to %u while a ground station was heartbeating; "
+                 "its link failsafe is not fed by the ground station being present",
+              mode_before, v->custom_mode);
+  }
+
+  rung_summary(r, "%d heartbeats, %d telemetry in 10 s with nothing requested", beats,
+               telemetry);
 }

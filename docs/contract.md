@@ -4,7 +4,7 @@ What a vehicle must do to get ArduDeck's screens. The SDK in this repository is 
 satisfy it; implementing it directly is another, and the
 [conformance tool](conformance.md) is what tells you whether you got it right either way.
 
-**If you are just getting started, read [getting-started.md](getting-started.md) instead.**
+**If you are just getting started, read [Getting started](getting-started.md) instead.**
 This page is the specification, not the tutorial.
 
 MAVLink already carries position, parameters and missions perfectly well. The three
@@ -124,7 +124,12 @@ vehicle reporting 0,0 puts a marker in the Gulf of Guinea and somebody flies tow
 flight mode and one `ARDUDECK_MISSION_CMDS`.
 
 Every mode carries a name. Without it the picker shows a number and the operator guesses.
-`AD_MODE_LOCAL_ONLY` marks a mode that exists but may not be commanded remotely.
+`AD_MODE_LOCAL_ONLY` marks a mode that exists but may not be commanded remotely, and
+`AD_MODE_MISSION` marks the one that flies a mission. Mark exactly one if you declare
+missions: a ground station has to select that mode before it starts a plan, and mode
+numbers belong to a firmware family rather than to MAVLink. An unmarked vehicle leaves it
+guessing from the frame type, which means guessing with ArduPilot's numbers. The SDK
+refuses any mode id you never declared, so a guess is a visible refusal, not a surprise.
 
 On a broadcast link there is no connect event, so the manifest repeats every few seconds
 until something answers, then drops to a slow keepalive.

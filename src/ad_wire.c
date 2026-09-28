@@ -104,6 +104,13 @@ void ad_tx_send(ad_msg_def_t def) {
 
 /* Only inbound messages need an extra. Anything else on the link is not ours to check. */
 static const ad_msg_def_t INBOUND[] = {
+  /*
+   * HEARTBEAT is here for the link timer rather than for anything it carries. A ground
+   * station watching a mission sends almost nothing else, so leaving it out made
+   * `ardudeck_silent_for` report silence on a healthy link, and a firmware following the
+   * failsafe advice in the docs would turn for home seconds into a mission.
+   */
+  AD_MSG_HEARTBEAT,
   AD_MSG_PARAM_REQUEST_READ, AD_MSG_PARAM_REQUEST_LIST, AD_MSG_PARAM_SET,
   AD_MSG_COMMAND_LONG, AD_MSG_MISSION_COUNT, AD_MSG_MISSION_ITEM_INT,
   AD_MSG_MISSION_REQUEST_INT, AD_MSG_MISSION_REQUEST_LIST, AD_MSG_MISSION_ACK,

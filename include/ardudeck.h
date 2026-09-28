@@ -67,6 +67,14 @@ typedef enum {
 #define AD_MODE_LOCAL_ONLY (1u << 0)
 #define AD_MODE_ARMED_ONLY (1u << 1)
 #define AD_MODE_TERMINAL   (1u << 2)
+/*
+ * The mode that flies a mission. Mark exactly one.
+ *
+ * A ground station has to put a vehicle into this mode before starting a mission, and
+ * without the flag it can only guess from the frame type, which means guessing with
+ * ArduPilot's mode numbers on firmware that never agreed to them.
+ */
+#define AD_MODE_MISSION    (1u << 3)
 
 typedef struct {
   uint16_t    id;    /**< what this firmware reports as its mode */

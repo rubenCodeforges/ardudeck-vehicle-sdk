@@ -11,15 +11,17 @@ $ ardudeck-conform --udp 14550
 
 acme test rover  fw 1.0.0  profile 1
 
-PASS  rung 0  position      heartbeat 1.0 Hz, 40 position, 43 attitude, fix 3
+PASS  rung 0  position      heartbeat 1.0 Hz, position x40, attitude x43, GPS fix 3
 PASS  rung 1  identity      acme test rover fw 1.0.0, 4 modes named, 2 mission commands
 FAIL  rung 2  parameters    5 parameters, 5 with metadata
                             -> 3 parameters have no description -> PITCH_KP, PITCH_KI
 PASS  rung 3  missions      3 items round-tripped, capacity 16, 2 commands declared
 PASS  rung 4  commands      unknown command refused in 12 ms
 PASS  extra   calibration   3 declared
+                            -> started 'compass' and cancelled it; it stopped
+PASS  extra   link          10 heartbeats, 78 telemetry in 10 s with nothing requested
 
-5 of 6 tested, 1 failing.
+6 of 7 tested, 1 failing.
 ArduDeck will enable: position, identity, missions, commands, calibration
 parameters stays hidden until it passes.
 ```
@@ -142,7 +144,28 @@ Does pressing a button do something, including saying no.
   actually arrive
 - No more than three tracks
 - A safe calibration is started and immediately cancelled. **The cancel must be
-  honoured**
+  honoured**: it either reports the cancelled result or it stops sending progress.
+  Answering a cancel with a success is a failure, and so is carrying on
+- If the routine finished on its own inside the start window, the tool says so rather
+  than claiming a cancel it never got to test
+
+### extra, link
+
+The tool heartbeats at 1 Hz for the whole session, exactly as ArduDeck does, and this
+rung stops asking for anything for ten seconds. The only thing left on the wire is that
+heartbeat.
+
+This is the normal state of a flight: somebody is watching a mission and requesting
+nothing. A vehicle whose link failsafe is fed by request traffic rather than by the
+ground station being present decides it is alone here, and turns for home.
+
+- The vehicle keeps heartbeating
+- It keeps sending telemetry
+- **Its mode does not change.** A mode change here means the failsafe is watching the
+  wrong thing
+
+A failure on this rung hides nothing in the app. It is a flight safety problem, and the
+verdict line says so.
 
 ---
 

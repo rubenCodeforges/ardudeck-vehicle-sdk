@@ -67,6 +67,7 @@
       <entry value="1" name="AD_MODE_LOCAL_ONLY"><description>Exists, but the ground station may not command it.</description></entry>
       <entry value="2" name="AD_MODE_ARMED_ONLY"><description>Only selectable while armed.</description></entry>
       <entry value="4" name="AD_MODE_TERMINAL"><description>Reached, not chosen. A finished or failed state.</description></entry>
+      <entry value="8" name="AD_MODE_MISSION"><description>The mode that flies a mission. A ground station selects it before starting one. Mark exactly one.</description></entry>
     </enum>
 
     <enum name="AD_PARAM_FLAG">

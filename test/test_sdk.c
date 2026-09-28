@@ -131,6 +131,7 @@ static const uint16_t MISSION_CMDS[] = {AD_NAV_WAYPOINT, AD_NAV_RETURN_TO_LAUNCH
 static const ad_mode_t MODES[] = {
   {0, "Idle", 0},
   {1, "Running", 0},
+  {4, "Mission", AD_MODE_MISSION},
   {6, "Manual", AD_MODE_LOCAL_ONLY},
 };
 
@@ -905,14 +906,113 @@ static void test_legacy_set_mode_works_on_its_own(void) {
 
   uint8_t sm[6];
   memset(sm, 0, sizeof sm);
-  sm[0] = 2;
+  sm[0] = 1; /* a mode the fixture declares; an undeclared one is refused, see below */
   sm[4] = 1;
   sm[5] = 1;
   inject(11, 89, sm, sizeof sm);
 
   CHECK(last_command == AD_CMD_SET_MODE, "a ground station that sends only SET_MODE "
         "was ignored (command %u)", last_command);
-  CHECK(last_args[0] == 2.0f, "mode %f", (double)last_args[0]);
+  CHECK(last_args[0] == 1.0f, "mode %f", (double)last_args[0]);
+}
+
+/**
+ * A ground station that does not read the declared mode table guesses, and the usual
+ * guess is an ArduPilot mode number for the frame type. ArduDeck did exactly this before
+ * the mission mode flag existed: a boat got mode 10, Rover's AUTO. Acting on it would
+ * move the vehicle into whatever this firmware numbers 10, so it is refused instead.
+ */
+static void test_an_undeclared_mode_is_refused(void) {
+  boot();
+  run_ms(100);
+  drain();
+
+  last_command = 0;
+  /* param1 = 1 says the custom mode is meaningful; param2 = 10 is Rover's AUTO. */
+  float p[7] = {1.0f, 10.0f, 0, 0, 0, 0, 0};
+  send_command_long(AD_CMD_SET_MODE, p);
+
+  CHECK(last_command == 0, "an undeclared mode reached the firmware (command %u)",
+        last_command);
+  uint8_t ack[4];
+  CHECK(payload_of(77, ack, sizeof ack), "no COMMAND_ACK for an undeclared mode");
+  CHECK(ack[2] == 2, "result %u, want 2 DENIED", ack[2]);
+}
+
+/**
+ * A ground station watching a mission sends its heartbeat and very little else.
+ *
+ * The regression: HEARTBEAT was missing from the SDK's inbound table, so those frames
+ * were discarded before anything recorded that somebody was there. `ardudeck_silent_for`
+ * kept answering "never heard" on a perfectly healthy link, and a firmware built on the
+ * failsafe advice in the docs would turn for home a few seconds into a mission flown
+ * from a laptop.
+ */
+static void test_a_ground_station_heartbeat_counts_as_contact(void) {
+  boot();
+  run_ms(100);
+  drain();
+
+  CHECK(ardudeck_silent_for(now()) == AD_NEVER_HEARD,
+        "heard something before anything was sent");
+
+  uint8_t hb[9];
+  memset(hb, 0, sizeof hb);
+  hb[4] = 6; /* MAV_TYPE_GCS, what ArduDeck puts in its own heartbeat */
+  hb[5] = 8; /* MAV_AUTOPILOT_INVALID */
+  inject(0, 50, hb, sizeof hb);
+
+  CHECK(ardudeck_silent_for(now()) != AD_NEVER_HEARD,
+        "a ground station heartbeat did not count as contact");
+  CHECK(ardudeck_silent_for(now()) < 100, "silent for %u ms after a heartbeat",
+        ardudeck_silent_for(now()));
+
+  /* And it keeps the link alive on its own, with no other traffic at all. */
+  run_ms(1000);
+  uint8_t hb2[9];
+  memset(hb2, 0, sizeof hb2);
+  hb2[4] = 6;
+  hb2[5] = 8;
+  inject(0, 50, hb2, sizeof hb2);
+  CHECK(ardudeck_linked(), "a link fed only by heartbeats was reported as lost");
+}
+
+/**
+ * On a broadcast link every vehicle is heartbeating too. Treating one of those as the
+ * ground station would aim telemetry at another vehicle and hold the failsafe open with
+ * nobody watching, which is worse than the bug above.
+ */
+static void test_another_vehicles_heartbeat_is_not_contact(void) {
+  boot();
+  run_ms(100);
+  drain();
+
+  uint8_t hb[9];
+  memset(hb, 0, sizeof hb);
+  hb[4] = 2; /* MAV_TYPE_QUADROTOR: another vehicle, not a ground station */
+  hb[5] = 3; /* MAV_AUTOPILOT_ARDUPILOTMEGA */
+  inject(0, 50, hb, sizeof hb);
+
+  CHECK(ardudeck_silent_for(now()) == AD_NEVER_HEARD,
+        "another vehicle's heartbeat was mistaken for a ground station");
+}
+
+/** The same guard on the legacy path, which has no acknowledgement to carry a refusal. */
+static void test_an_undeclared_legacy_mode_is_refused(void) {
+  boot();
+  run_ms(100);
+  drain();
+
+  last_command = 0;
+  uint8_t sm[6];
+  memset(sm, 0, sizeof sm);
+  sm[0] = 10;
+  sm[4] = 1;
+  sm[5] = 1;
+  inject(11, 89, sm, sizeof sm);
+
+  CHECK(last_command == 0, "an undeclared legacy mode reached the firmware (command %u)",
+        last_command);
 }
 
 /**
@@ -1056,6 +1156,10 @@ int main(void) {
   RUN(test_arm_arguments_are_left_alone);
   RUN(test_legacy_set_mode_does_not_double_fire);
   RUN(test_legacy_set_mode_works_on_its_own);
+  RUN(test_an_undeclared_mode_is_refused);
+  RUN(test_an_undeclared_legacy_mode_is_refused);
+  RUN(test_a_ground_station_heartbeat_counts_as_contact);
+  RUN(test_another_vehicles_heartbeat_is_not_contact);
   RUN(test_calibration_start_reaches_the_firmware);
   RUN(test_calibration_refused_while_armed);
   RUN(test_calibration_progress_is_throttled);

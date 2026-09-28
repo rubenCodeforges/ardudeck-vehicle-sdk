@@ -86,6 +86,7 @@ static void print_verdict(const rung_t *rungs, int n) {
   bool any = false;
   for (int i = 0; i < n; i++) {
     if (rungs[i].result == R_FAIL || rungs[i].result == R_SKIP) continue;
+    if (!strcmp(rungs[i].name, "link")) continue; /* behaviour in flight, not a screen */
     printf("%s %s", any ? "," : "", rungs[i].name);
     any = true;
   }
@@ -94,7 +95,12 @@ static void print_verdict(const rung_t *rungs, int n) {
 
   for (int i = 0; i < n; i++) {
     if (rungs[i].result == R_FAIL) {
-      printf("%s stays hidden until it passes.\n", rungs[i].name);
+      if (!strcmp(rungs[i].name, "link")) {
+        printf("the link check failed, which is a flight safety problem rather than a "
+               "hidden screen.\n");
+      } else {
+        printf("%s stays hidden until it passes.\n", rungs[i].name);
+      }
     }
   }
 }
@@ -162,7 +168,7 @@ int main(int argc, char **argv) {
     printf("listening on %s%s\n", udp ? "udp " : "serial ", udp ? udp : serial);
   }
 
-  rung_t rungs[6];
+  rung_t rungs[7];
   memset(rungs, 0, sizeof rungs);
   rungs[0].rung = "rung 0"; rungs[0].name = "position";
   rungs[1].rung = "rung 1"; rungs[1].name = "identity";
@@ -170,13 +176,14 @@ int main(int argc, char **argv) {
   rungs[3].rung = "rung 3"; rungs[3].name = "missions";
   rungs[4].rung = "rung 4"; rungs[4].name = "commands";
   rungs[5].rung = "extra";  rungs[5].name = "calibration";
+  rungs[6].rung = "extra";  rungs[6].name = "link";
 
   check_rung0(&s, &rungs[0]);
 
   /* Nothing above rung 0 can be judged without knowing what was claimed, and a silent
      link is a link problem rather than a conformance result. */
   if (rungs[0].result == R_FAIL && s.v.heartbeats == 0) {
-    for (int i = 1; i < 6; i++) {
+    for (int i = 1; i < 7; i++) {
       rungs[i].result = R_SKIP;
       snprintf(rungs[i].summary, sizeof rungs[i].summary, "no link");
     }
@@ -186,14 +193,15 @@ int main(int argc, char **argv) {
     check_rung3(&s, &rungs[3]);
     check_rung4(&s, &rungs[4]);
     check_calibration(&s, &rungs[5]);
+    check_link(&s, &rungs[6]);
   }
 
   bool tty = getenv("NO_COLOR") == NULL;
   if (json) {
-    print_json(rungs, 6, &s.v);
+    print_json(rungs, 7, &s.v);
   } else {
-    print_table(rungs, 6, &s.v, tty);
-    print_verdict(rungs, 6);
+    print_table(rungs, 7, &s.v, tty);
+    print_verdict(rungs, 7);
   }
 
   link_close(s.link);

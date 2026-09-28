@@ -181,11 +181,16 @@ typedef struct {
 
   cal_info_t cals[MAX_CALS];
   int        cals_seen;
+  /* Evidence that a cancel actually stopped something, rather than arriving too late. */
+  int      cal_progress_count;
+  bool     cal_result_seen;
+  uint8_t  cal_result_ok;
 
   /* rung 0 evidence */
   int      heartbeats, positions, attitudes, gps_raws, sys_status;
   uint32_t first_heartbeat_ms, last_heartbeat_ms;
   uint8_t  autopilot, vehicle_type;
+  uint32_t custom_mode;      /* from the heartbeat, so a mode change is visible */
   uint8_t  fix;
   int32_t  last_lat, last_lon;
   bool     position_without_fix;
@@ -202,6 +207,7 @@ typedef struct {
   vehicle_t    v;
   uint8_t      seq;
   uint8_t      sysid, compid;
+  uint32_t     last_hb_ms;   /* keeps the 1 Hz GCS heartbeat going for the whole session */
   bool         verbose;
   bool         allow_mission_write;
 } session_t;
@@ -220,5 +226,6 @@ void check_rung2(session_t *s, rung_t *r);
 void check_rung3(session_t *s, rung_t *r);
 void check_rung4(session_t *s, rung_t *r);
 void check_calibration(session_t *s, rung_t *r);
+void check_link(session_t *s, rung_t *r);
 
 #endif /* CONFORM_H */

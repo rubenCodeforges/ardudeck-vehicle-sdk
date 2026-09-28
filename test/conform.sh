@@ -52,6 +52,9 @@ expect "parameters with no help fail"        units            $((PORT+6))   para
 expect "a position at 0,0 fails"             zero-island      $((PORT+8))   position    FAIL
 expect "accepting any command fails"         silent-command   $((PORT+10))  commands    FAIL
 expect "declaring missions with no commands fails" no-mission-cmds $((PORT+12)) missions FAIL
+expect "missions with no mode marked fails"   no-mission-mode  $((PORT+14))  identity    FAIL
+expect "a calibration that ignores cancel fails" ignore-cancel  $((PORT+16))  calibration FAIL
+expect "a false link failsafe fails"          rtl-on-silence   $((PORT+18))  link        FAIL
 
 echo
 if [ $fails -eq 0 ]; then

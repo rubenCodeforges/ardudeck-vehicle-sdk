@@ -189,6 +189,31 @@ is shown verbatim.
 
 ---
 
+## The four actions, and which one ends a routine
+
+Every action arrives through `on_calibrate` as an `ad_cal_action_t`.
+
+| Action | When it arrives | What you do |
+|---|---|---|
+| `AD_CAL_START` | The operator pressed start | Begin, or refuse with a reason |
+| `AD_CAL_ACCEPT` | The operator says the step is done | Move to the next pose, or finish the last one |
+| `AD_CAL_SAVE` | The operator wants the result kept now | Finish, store the result, call `ardudeck_cal_done` |
+| `AD_CAL_CANCEL` | The operator pressed cancel | Stop, change nothing |
+
+Which one ends the routine depends on its shape:
+
+- **Positional** ends on the `AD_CAL_ACCEPT` for the last pose.
+- **Coverage** normally ends by itself when every track reaches its target, and you call
+  `ardudeck_cal_done` without being asked. `AD_CAL_SAVE` ends it early, keeping whatever
+  has been gathered so far, which is what the operator means by "good enough".
+- **Sweep** and **instant** end by themselves.
+
+Whatever ends it, finish with `ardudeck_cal_done`, and re-announce any parameter the
+routine wrote. A calibration that stores offsets without re-announcing them leaves the
+editor showing the old values, and the next save undoes the calibration.
+
+---
+
 ## Cancel has to work
 
 The operator can press cancel at any point, including halfway through. You get

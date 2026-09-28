@@ -27,6 +27,20 @@ static bool break_modes = false;
 static bool break_no_mission_cmds = false;
 static bool break_zero_island = false;
 static bool break_silent_command = false;
+static bool break_no_mission_mode = false;
+static bool break_ignore_cancel = false;
+static bool break_rtl_on_silence = false;
+
+/*
+ * The bug this exists to catch: a failsafe fed by request traffic rather than by the
+ * ground station being present. While somebody watches a mission, nothing is requested,
+ * so a vehicle built this way decides it is alone and turns for home.
+ */
+static uint32_t last_request_ms = 0;
+
+/* Which calibration is running, so the loop can report progress for it. */
+static bool cal_running = false;
+static float cal_turned = 0.0f;
 
 static uint32_t now_ms(void) {
   static struct timeval start;
@@ -92,11 +106,16 @@ static const ad_param_t PARAMS_BROKEN[] = {
 static const uint16_t MISSION_CMDS[] = {AD_NAV_WAYPOINT, AD_NAV_RETURN_TO_LAUNCH};
 
 static const ad_mode_t MODES_OK[] = {
-  {0, "Idle", 0}, {1, "Running", 0}, {2, "Holding", 0}, {3, "Returning", 0},
+  {0, "Idle", 0}, {1, "Running", AD_MODE_MISSION}, {2, "Holding", 0}, {3, "Returning", 0},
 };
 
 static const ad_mode_t MODES_BROKEN[] = {
-  {0, "Idle", 0}, {1, "", 0}, {2, "Holding", 0}, {3, "Returning", 0},
+  {0, "Idle", 0}, {1, "", AD_MODE_MISSION}, {2, "Holding", 0}, {3, "Returning", 0},
+};
+
+/* Every mode named, none marked as the one that flies a mission. */
+static const ad_mode_t MODES_NO_MISSION[] = {
+  {0, "Idle", 0}, {1, "Running", 0}, {2, "Holding", 0}, {3, "Returning", 0},
 };
 
 static const ad_cal_track_t COMPASS_TRACKS[] = {
@@ -142,6 +161,7 @@ static ad_wp_t stored[STORE];
 static uint16_t stored_count;
 
 static bool on_param_set(const ad_param_t *p, float value, void *user) {
+  last_request_ms = now_ms();
   (void)p; (void)value; (void)user;
   return true;
 }
@@ -181,8 +201,27 @@ static bool on_command(uint16_t cmd, const float args[7], char *why, size_t why_
 
 static bool on_calibrate(const char *cal_id, ad_cal_action_t action, char *why,
                          size_t why_len, void *user) {
-  (void)cal_id; (void)action; (void)why; (void)why_len; (void)user;
+  (void)cal_id; (void)why; (void)why_len; (void)user;
+  if (action == AD_CAL_START) {
+    cal_running = true;
+    cal_turned = 0.0f;
+  } else if (action == AD_CAL_CANCEL) {
+    /* A vehicle that keeps going here is the thing the conformance check exists for. */
+    if (!break_ignore_cancel) cal_running = false;
+  }
   return true;
+}
+
+/* A coverage routine reports as it goes, which is what gives a cancel something to stop. */
+static void cal_step(void) {
+  if (!cal_running) return;
+  cal_turned += 8.0f;
+  ad_cal_progress_t pr = {0};
+  pr.track[0] = cal_turned / 60.0f;
+  pr.track[1] = cal_turned;
+  pr.percent = (uint8_t)(cal_turned / 7.2f > 99.0f ? 99 : cal_turned / 7.2f);
+  pr.hint = "Keep turning";
+  ardudeck_cal_progress("compass", &pr);
 }
 
 int main(int argc, char **argv) {
@@ -197,6 +236,9 @@ int main(int argc, char **argv) {
       else if (!strcmp(what, "no-mission-cmds")) break_no_mission_cmds = true;
       else if (!strcmp(what, "zero-island")) break_zero_island = true;
       else if (!strcmp(what, "silent-command")) break_silent_command = true;
+      else if (!strcmp(what, "no-mission-mode")) break_no_mission_mode = true;
+      else if (!strcmp(what, "ignore-cancel")) break_ignore_cancel = true;
+      else if (!strcmp(what, "rtl-on-silence")) break_rtl_on_silence = true;
       else {
         fprintf(stderr, "unknown --break '%s'\n", what);
         return 2;
@@ -204,6 +246,7 @@ int main(int argc, char **argv) {
     } else {
       fprintf(stderr,
               "usage: fake_vehicle [--port N] [--break units|modes|no-mission-cmds|"
+              "no-mission-mode|ignore-cancel|rtl-on-silence|"
               "zero-island|silent-command]\n");
       return 2;
     }
@@ -223,6 +266,7 @@ int main(int argc, char **argv) {
   if (bind(sock, (struct sockaddr *)&me, sizeof me) < 0) { perror("bind"); return 1; }
 
   if (break_modes) { CAPS.modes = MODES_BROKEN; }
+  if (break_no_mission_mode) { CAPS.modes = MODES_NO_MISSION; }
   /* Declares missions, lists nothing it will fly. Nothing can be planned. */
   if (break_no_mission_cmds) { CAPS.mission_cmd_count = 0; }
 
@@ -269,9 +313,15 @@ int main(int argc, char **argv) {
     }
     ardudeck_altitude(38.0f, 0.5f, 0.0f);
     ardudeck_attitude(0.02f, -0.01f, 1.6f);
-    ardudeck_status(1, 0, 12.4f, false);
+    uint8_t mode = 1;
+    if (break_rtl_on_silence && last_request_ms != 0 &&
+        (uint32_t)(now_ms() - last_request_ms) > 3000) {
+      mode = 3; /* "returning", the false failsafe */
+    }
+    ardudeck_status(mode, 0, 12.4f, false);
     ardudeck_battery(12.4f, 3.1f, 78);
     ardudeck_home(52.5163, 13.3777, 38.0f);
+    cal_step();
     ardudeck_tick(now_ms());
   }
 }

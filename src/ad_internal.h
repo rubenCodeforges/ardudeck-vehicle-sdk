@@ -17,6 +17,8 @@
 
 #define AD_MAV_TYPE_GENERIC 0
 #define AD_MAV_AUTOPILOT_GENERIC 0
+/* MAV_TYPE_GCS. What a ground station puts in byte 4 of its heartbeat. */
+#define AD_MAV_TYPE_GCS 6
 #define AD_MODE_FLAG_CUSTOM 1
 #define AD_MODE_FLAG_ARMED 128
 
