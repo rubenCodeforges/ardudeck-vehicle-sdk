@@ -1,0 +1,19 @@
+{
+  "name": "ardudeck-vehicle-sdk",
+  "version": "0.1.0",
+  "description": "Put a flight controller on ArduDeck's map, parameter screen, mission planner and calibration screens. C99, no allocation, no RTOS, no sockets.",
+  "keywords": ["mavlink", "telemetry", "drone", "uav", "ardudeck", "ground-station"],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rubenCodeforges/ardudeck-vehicle-sdk.git"
+  },
+  "frameworks": "*",
+  "platforms": "*",
+  "headers": "ardudeck.h",
+  "build": {
+    "srcDir": "src",
+    "includeDir": "include",
+    "flags": ["-Isrc"]
+  }
+}

@@ -1,0 +1,238 @@
+<?xml version="1.0"?>
+<!--
+  The ArduDeck Vehicle SDK contract.
+
+  SOURCE OF TRUTH for everything on the wire. src/ad_msg_defs.h is generated from this
+  file by tools/gen_defs.py and must never be edited by hand: a mistyped CRC extra
+  produces frames that every receiver silently drops, which looks exactly like a network
+  fault. ArduDeck generates its decoder from this file too, so the contract stays
+  upstream of the application.
+
+  Everything a vehicle reports about itself that MAVLink already has a message for uses
+  that message. These are only the things it does not: what the vehicle IS, what its
+  parameters MEAN, and how its calibrations are SHAPED.
+
+  Standard messages this profile relies on, unchanged:
+    out  HEARTBEAT 0, SYS_STATUS 1, GPS_RAW_INT 24, ATTITUDE 30, GLOBAL_POSITION_INT 33,
+         MISSION_CURRENT 42, MISSION_COUNT 44, MISSION_ACK 47, RC_CHANNELS 65,
+         MISSION_ITEM_INT 73, VFR_HUD 74, COMMAND_ACK 77, HOME_POSITION 242,
+         STATUSTEXT 253, PARAM_VALUE 22
+    in   PARAM_REQUEST_READ 20, PARAM_REQUEST_LIST 21, PARAM_SET 23,
+         MISSION_REQUEST_LIST 43, MISSION_CLEAR_ALL 45, MISSION_REQUEST_INT 51,
+         MISSION_ITEM_INT 73, MISSION_COUNT 44, COMMAND_LONG 76
+
+  Message id block 43000-43049 is PROVISIONAL and not yet registered with the MAVLink
+  project. Do not ship a product on it until it is.
+
+  It is NOT 42000: that block belongs to the icarous dialect (ICAROUS_HEARTBEAT,
+  ICAROUS_KINEMATIC_BANDS). Check every id against the upstream dialects before moving
+  this block again. A collision does not announce itself; the frames simply fail their
+  checksum against whichever definition the receiver happens to hold.
+-->
+<mavlink>
+  <include>common.xml</include>
+  <version>1</version>
+
+  <enums>
+    <enum name="AD_FRAME">
+      <description>What kind of vehicle this is. Picks the icon, the HUD layout, and whether altitude is a first-class field.</description>
+      <entry value="0" name="AD_FRAME_UNKNOWN"><description>Not stated.</description></entry>
+      <entry value="1" name="AD_FRAME_MULTIROTOR"><description>Multirotor.</description></entry>
+      <entry value="2" name="AD_FRAME_FIXED_WING"><description>Fixed wing.</description></entry>
+      <entry value="3" name="AD_FRAME_VTOL"><description>Fixed wing with vertical takeoff.</description></entry>
+      <entry value="4" name="AD_FRAME_HELICOPTER"><description>Single rotor helicopter.</description></entry>
+      <entry value="5" name="AD_FRAME_ROVER"><description>Ground vehicle.</description></entry>
+      <entry value="6" name="AD_FRAME_SURFACE_BOAT"><description>Surface vessel.</description></entry>
+      <entry value="7" name="AD_FRAME_SUBMARINE"><description>Submersible.</description></entry>
+      <entry value="8" name="AD_FRAME_ANTENNA_TRACKER"><description>Antenna tracker.</description></entry>
+    </enum>
+
+    <enum name="AD_FEATURE">
+      <description>What the vehicle supports. A bit not set is a screen ArduDeck does not show. Under-declare, then grow.</description>
+      <entry value="1" name="AD_FEAT_PARAMS"><description>Parameter read and write, with metadata.</description></entry>
+      <entry value="2" name="AD_FEAT_MISSION"><description>Mission upload and download.</description></entry>
+      <entry value="4" name="AD_FEAT_COMMANDS"><description>Arm, mode change, mission control.</description></entry>
+      <entry value="8" name="AD_FEAT_HOME"><description>Reports a home position.</description></entry>
+      <entry value="16" name="AD_FEAT_GEOFENCE"><description>RESERVED. No protocol is defined for this yet. Do not set it.</description></entry>
+      <entry value="32" name="AD_FEAT_CALIBRATION"><description>Declares one or more calibrations.</description></entry>
+      <entry value="64" name="AD_FEAT_MANUAL_CONTROL"><description>RESERVED. No protocol is defined for this yet. Do not set it. When it exists it will only be declarable by a vehicle whose failsafe is driven by the same link the sticks arrive on.</description></entry>
+      <entry value="128" name="AD_FEAT_LOG_DOWNLOAD"><description>RESERVED. No protocol is defined for this yet. Do not set it.</description></entry>
+      <entry value="256" name="AD_FEAT_TERRAIN"><description>Accepts terrain-relative altitudes in a plan.</description></entry>
+      <entry value="512" name="AD_FEAT_MISSION_READ"><description>Can read a stored mission back out.</description></entry>
+      <entry value="1024" name="AD_FEAT_RC_REPORT"><description>Reports receiver channels.</description></entry>
+    </enum>
+
+    <enum name="AD_MODE_FLAG">
+      <description>How a flight mode behaves in the picker.</description>
+      <entry value="1" name="AD_MODE_LOCAL_ONLY"><description>Exists, but the ground station may not command it.</description></entry>
+      <entry value="2" name="AD_MODE_ARMED_ONLY"><description>Only selectable while armed.</description></entry>
+      <entry value="4" name="AD_MODE_TERMINAL"><description>Reached, not chosen. A finished or failed state.</description></entry>
+    </enum>
+
+    <enum name="AD_PARAM_FLAG">
+      <description>How a parameter behaves in the editor.</description>
+      <entry value="1" name="AD_PARAM_REBOOT"><description>Read once at boot. The editor offers a reboot after writing.</description></entry>
+      <entry value="2" name="AD_PARAM_READONLY"><description>Reported, never written.</description></entry>
+      <entry value="4" name="AD_PARAM_OPTIONS"><description>Has a list of named options, sent as ARDUDECK_PARAM_OPTION.</description></entry>
+      <entry value="8" name="AD_PARAM_ADVANCED"><description>Hidden behind the advanced toggle.</description></entry>
+    </enum>
+
+    <enum name="AD_CAL_KIND">
+      <description>The shape of a calibration, which is what decides the screen ArduDeck draws for it.</description>
+      <entry value="0" name="AD_CAL_POSITIONAL"><description>Hold the vehicle in each named attitude until it is accepted.</description></entry>
+      <entry value="1" name="AD_CAL_COVERAGE"><description>Keep moving until every track reaches its target.</description></entry>
+      <entry value="2" name="AD_CAL_SWEEP"><description>Drive one input through its range while the vehicle records.</description></entry>
+      <entry value="3" name="AD_CAL_INSTANT"><description>Hold still and wait.</description></entry>
+    </enum>
+
+    <enum name="AD_CAL_REQ">
+      <description>What the operator must be warned about. This warns; it never authorises. The vehicle is the only gate.</description>
+      <entry value="1" name="AD_CAL_REQ_DISARMED"><description>Start is disabled while armed.</description></entry>
+      <entry value="2" name="AD_CAL_REQ_STATIONARY"><description>Prompt to put the vehicle down first.</description></entry>
+      <entry value="4" name="AD_CAL_REQ_PROPS_OFF"><description>Blocking confirmation naming propellers.</description></entry>
+      <entry value="8" name="AD_CAL_REQ_MOTORS_LIVE"><description>Motors will spin. Strongest warning, plus hold to confirm.</description></entry>
+      <entry value="16" name="AD_CAL_REQ_LOCAL_ONLY"><description>Listed but not startable from the ground station.</description></entry>
+      <entry value="32" name="AD_CAL_REQ_LEVEL_SURFACE"><description>Prompt for a surface known to be level.</description></entry>
+    </enum>
+
+    <enum name="AD_CAL_ACTION">
+      <description>What the operator pressed.</description>
+      <entry value="0" name="AD_CAL_START"><description>Begin the routine.</description></entry>
+      <entry value="1" name="AD_CAL_ACCEPT"><description>The current pose is held, capture it.</description></entry>
+      <entry value="2" name="AD_CAL_CANCEL"><description>Abandon. Must always be honoured, even mid-routine.</description></entry>
+      <entry value="3" name="AD_CAL_SAVE"><description>Store the result.</description></entry>
+    </enum>
+
+    <enum name="AD_REQUEST">
+      <description>What the ground station is asking the vehicle to re-send.</description>
+      <entry value="0" name="AD_REQ_MANIFEST"><description>Manifest, modes and mission command list.</description></entry>
+      <entry value="1" name="AD_REQ_PARAM_META"><description>Parameter metadata, for one index or all.</description></entry>
+      <entry value="2" name="AD_REQ_CALIBRATION"><description>Calibration declarations, poses and tracks.</description></entry>
+    </enum>
+  </enums>
+
+  <messages>
+
+    <message id="43000" name="ARDUDECK_MANIFEST">
+      <description>What this vehicle is and what it supports. Sent on a slow repeat and on request. A capability not declared here is a screen the ground station will not show.</description>
+      <field type="uint32_t" name="features" enum="AD_FEATURE" display="bitmask">Supported features.</field>
+      <field type="uint16_t" name="profile_version">SDK contract revision this firmware was built against.</field>
+      <field type="uint16_t" name="mission_capacity">Mission items the vehicle can store. 0 when missions are unsupported.</field>
+      <field type="uint16_t" name="param_count">Parameters in the table.</field>
+      <field type="uint8_t" name="frame" enum="AD_FRAME">Vehicle kind.</field>
+      <field type="uint8_t" name="mode_count">Flight modes that follow as ARDUDECK_MODE.</field>
+      <field type="uint8_t" name="mission_cmd_count">Mission commands honoured.</field>
+      <field type="uint8_t" name="cal_count">Calibrations that follow as ARDUDECK_CAL_DECLARE.</field>
+      <field type="char[20]" name="vendor">Who makes it.</field>
+      <field type="char[20]" name="model">What it is called.</field>
+      <field type="char[16]" name="firmware">Firmware version string.</field>
+      <field type="char[24]" name="uid">Stable identity for this airframe, or empty.</field>
+    </message>
+
+    <message id="43001" name="ARDUDECK_MODE">
+      <description>One flight mode, by name. Without this the mode picker shows a number and the operator guesses.</description>
+      <field type="uint16_t" name="mode_id">The value this firmware reports in HEARTBEAT custom_mode.</field>
+      <field type="uint8_t" name="index">Position in the list, from 0.</field>
+      <field type="uint8_t" name="count">Total modes, so a receiver knows when it has them all.</field>
+      <field type="uint8_t" name="flags" enum="AD_MODE_FLAG" display="bitmask">How it behaves in the picker.</field>
+      <field type="char[16]" name="name">Shown to the operator.</field>
+    </message>
+
+    <message id="43002" name="ARDUDECK_MISSION_CMDS">
+      <description>Mission commands this firmware honours, as MAV_CMD values. A plan containing anything else is refused before the operator can send it.</description>
+      <field type="uint16_t[32]" name="cmds">Honoured MAV_CMD values, unused entries 0.</field>
+      <field type="uint8_t" name="count">How many entries are used.</field>
+    </message>
+
+    <message id="43003" name="ARDUDECK_PARAM_META">
+      <description>What a parameter means. PARAM_VALUE carries the number; this carries everything that makes it editable rather than guessable.</description>
+      <field type="float" name="min_value">Lowest accepted value.</field>
+      <field type="float" name="max_value">Highest accepted value.</field>
+      <field type="float" name="increment">Step for the editor, 0 for continuous.</field>
+      <field type="uint16_t" name="param_index">Index in the table, matching PARAM_VALUE.</field>
+      <field type="uint8_t" name="flags" enum="AD_PARAM_FLAG" display="bitmask">Editor behaviour.</field>
+      <field type="uint8_t" name="option_count">Named options that follow, 0 for a plain number.</field>
+      <field type="char[16]" name="param_id">Parameter name, matching PARAM_VALUE.</field>
+      <field type="char[12]" name="unit">Unit shown beside the field. Empty for a pure gain.</field>
+      <field type="char[80]" name="help">One line. What changing it does, not what it is called.</field>
+    </message>
+
+    <message id="43004" name="ARDUDECK_PARAM_OPTION">
+      <description>One named choice for a parameter, so the operator picks a word instead of looking up a number.</description>
+      <field type="uint16_t" name="param_index">Which parameter.</field>
+      <field type="uint8_t" name="option_index">Position in the list, from 0. This is the stored value.</field>
+      <field type="uint8_t" name="option_count">Total options.</field>
+      <field type="char[16]" name="param_id">Parameter name, for receivers that key on it.</field>
+      <field type="char[32]" name="label">Shown in the dropdown.</field>
+    </message>
+
+    <message id="43005" name="ARDUDECK_CAL_DECLARE">
+      <description>One calibration the vehicle offers. The routine stays in the firmware; this describes it well enough for the ground station to draw the screen.</description>
+      <field type="uint8_t" name="index">Position in the list, from 0.</field>
+      <field type="uint8_t" name="count">Total calibrations.</field>
+      <field type="uint8_t" name="kind" enum="AD_CAL_KIND">Which of the four shapes this is.</field>
+      <field type="uint8_t" name="requirements" enum="AD_CAL_REQ" display="bitmask">What the operator must be warned about.</field>
+      <field type="uint8_t" name="pose_count">Poses that follow, for AD_CAL_POSITIONAL.</field>
+      <field type="uint8_t" name="track_count">Tracks that follow, for AD_CAL_COVERAGE.</field>
+      <field type="char[16]" name="cal_id">Stable id. Use a standard one where it fits; anything else still renders.</field>
+      <field type="char[24]" name="name">Screen title.</field>
+      <field type="char[80]" name="warning">Shown before Start, in the vendor's own words.</field>
+      <field type="char[60]" name="prompt">What to move, for AD_CAL_SWEEP.</field>
+    </message>
+
+    <message id="43006" name="ARDUDECK_CAL_POSE">
+      <description>One attitude the operator has to hold. The ground station draws the live vehicle against a ghost in this pose and they converge.</description>
+      <field type="float" name="roll_deg">Roll to hold.</field>
+      <field type="float" name="pitch_deg">Pitch to hold.</field>
+      <field type="uint8_t" name="cal_index">Which calibration.</field>
+      <field type="uint8_t" name="pose_index">Position in the sequence, from 0.</field>
+      <field type="char[16]" name="cal_id">Calibration id.</field>
+      <field type="char[24]" name="name">Shown as the instruction, for example Nose down.</field>
+    </message>
+
+    <message id="43007" name="ARDUDECK_CAL_TRACK">
+      <description>One thing that must reach a target before a coverage calibration is done. A routine that settles two things in one motion declares two tracks.</description>
+      <field type="float" name="needed">The target value.</field>
+      <field type="uint8_t" name="cal_index">Which calibration.</field>
+      <field type="uint8_t" name="track_index">Position in the list, from 0, maximum 3.</field>
+      <field type="char[16]" name="cal_id">Calibration id.</field>
+      <field type="char[12]" name="unit">Unit, empty for a count or a ratio.</field>
+      <field type="char[32]" name="label">Shown beside the progress bar.</field>
+    </message>
+
+    <message id="43008" name="ARDUDECK_CAL_CONTROL">
+      <description>What the operator pressed on a calibration screen.</description>
+      <field type="uint8_t" name="target_system">System this is for.</field>
+      <field type="uint8_t" name="target_component">Component this is for.</field>
+      <field type="uint8_t" name="cal_action" enum="AD_CAL_ACTION">Start, accept, cancel or save.</field>
+      <field type="char[16]" name="cal_id">Which calibration.</field>
+    </message>
+
+    <message id="43009" name="ARDUDECK_CAL_PROGRESS">
+      <description>Where a running calibration has got to. Sent as often as the firmware likes; the SDK throttles it.</description>
+      <field type="float[3]" name="track">Where each coverage track has got to.</field>
+      <field type="uint8_t" name="step">Pose being waited for, for AD_CAL_POSITIONAL.</field>
+      <field type="uint8_t" name="step_done">1 when that pose was just captured.</field>
+      <field type="uint8_t" name="percent">Overall progress, 0 to 100, or 255 for unknown.</field>
+      <field type="char[16]" name="cal_id">Which calibration.</field>
+      <field type="char[48]" name="hint">Optional coaching, for example Turn more slowly.</field>
+    </message>
+
+    <message id="43010" name="ARDUDECK_CAL_RESULT">
+      <description>How a calibration ended. Every parameter it wrote must also be re-announced with PARAM_VALUE, or the editor shows stale offsets and the next save undoes the calibration.</description>
+      <field type="float" name="quality">Fit quality 0 to 1, or NaN when the firmware does not compute one.</field>
+      <field type="uint8_t" name="ok">1 succeeded, 0 failed or cancelled.</field>
+      <field type="char[16]" name="cal_id">Which calibration.</field>
+      <field type="char[64]" name="detail">What happened, in the vendor's own words.</field>
+    </message>
+
+    <message id="43011" name="ARDUDECK_REQUEST">
+      <description>Ask the vehicle to re-send something it describes about itself.</description>
+      <field type="uint16_t" name="index">Which item, or 65535 for all of them.</field>
+      <field type="uint8_t" name="target_system">System this is for.</field>
+      <field type="uint8_t" name="target_component">Component this is for.</field>
+      <field type="uint8_t" name="what" enum="AD_REQUEST">What to re-send.</field>
+    </message>
+
+  </messages>
+</mavlink>

@@ -1,0 +1,16 @@
+description: >-
+  Put an ESP-IDF flight controller on ArduDeck's map, parameter screen, mission planner
+  and calibration screens. Declare what the vehicle is, wire four callbacks.
+url: https://github.com/rubenCodeforges/ardudeck-vehicle-sdk
+repository: https://github.com/rubenCodeforges/ardudeck-vehicle-sdk.git
+issues: https://github.com/rubenCodeforges/ardudeck-vehicle-sdk/issues
+version: "0.1.0"
+license: Apache-2.0
+tags:
+  - mavlink
+  - telemetry
+  - drone
+  - ardudeck
+dependencies:
+  idf:
+    version: ">=4.4"

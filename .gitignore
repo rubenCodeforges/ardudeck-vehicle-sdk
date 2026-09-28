@@ -1,0 +1,16 @@
+# Working notes, never published.
+HANDOVER.md
+
+# Build output
+build/
+dist/
+*.o
+*.a
+*.out
+test/run_tests
+test/fake_vehicle
+*.dSYM/
+conformance/ardudeck-conform
+__pycache__/
+.DS_Store
+compile_commands.json
