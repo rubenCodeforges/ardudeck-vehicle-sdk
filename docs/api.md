@@ -227,16 +227,29 @@ static const ad_param_t PARAMS[] = {
 };
 ```
 
-Available widths: `AD_F32`, `AD_I32`, `AD_U32` is absent on purpose, `AD_I16`, `AD_U16`,
+Available widths: `AD_F32`, `AD_I32`, `AD_I16`, `AD_U16`,
 `AD_U8`. Every macro is `(NAME, POINTER, MIN, MAX, UNIT, HELP)`.
 
 `AD_COUNT(PARAMS)` gives the entry count for `param_count`, so the number cannot drift
 from the table.
 
-**The table does not have to be `const`, and the values do not have to be globals.** If
-your configuration is `static` inside another file, build the table at runtime in a
-`static ad_param_t PARAMS[N]` and point each entry at whatever accessor you have. The SDK
-only reads it, and it must outlive `ardudeck_begin`. `AD_F32_REBOOT` marks a value
+**The table does not have to be `const`, and the values do not have to be globals.** This
+matters, because most firmware keeps its configuration `static` inside one module. Build
+the table at runtime and hand over pointers you got from an accessor:
+
+```c
+static ad_param_t PARAMS[5];
+
+void params_init(void) {
+  boat_params_t *p = config_params_edit();          /* your own accessor */
+  PARAMS[0] = (ad_param_t)AD_F32("CRUISE_SPD", &p->cruise_speed_ms, 0.2f, 4.0f, "m/s",
+                                 "Speed held between waypoints");
+  /* ... */
+}
+```
+
+The SDK only ever reads the table, but it keeps the pointer, so it must outlive
+`ardudeck_begin`. A `static` array is the simplest way to be sure. `AD_F32_REBOOT` marks a value
 read once at boot, so the editor offers a reboot after writing it. `AD_ENUM` takes a
 getter and setter instead of a pointer, because the wire carries a number and your
 storage may not.
@@ -445,11 +458,29 @@ void ardudeck_notify(ad_severity_t severity, const char *text);
 scroll in the message panel. This is the right home for whatever your firmware already
 logs at boot.
 
+## Knowing whether anyone is there
+
 ```c
-bool ardudeck_linked(void);
+uint32_t ardudeck_silent_for(uint32_t now_ms);   /* AD_NEVER_HEARD if nothing ever has */
+bool     ardudeck_linked(void);                  /* silent for less than AD_LINK_TIMEOUT_MS */
 ```
 
-True once any ground station has been heard from. Never required, occasionally useful.
+> ### Build your link failsafe on the first one
+>
+> ```c
+> if (ardudeck_silent_for(millis()) > 3000) enter_failsafe();
+> ```
+>
+> Only inbound traffic counts. The SDK transmits whether or not anybody is listening, so
+> its own sending proves nothing about the link.
+>
+> `ardudeck_linked()` is a convenience with a fixed five second window
+> (`AD_LINK_TIMEOUT_MS`). Do not build a failsafe on it: it hides the number your timeout
+> should be comparing against.
+>
+> **This matters most on a vehicle that already has a failsafe for a different link.** A
+> boat flown from a phone, then handed a mission from a laptop, will otherwise trigger its
+> phone-link failsafe in the middle of the mission.
 
 ---
 

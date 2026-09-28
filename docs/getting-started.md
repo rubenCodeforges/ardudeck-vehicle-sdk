@@ -231,11 +231,26 @@ static const ad_capability_t CAPS = {
   .frame  = AD_FRAME_MULTIROTOR,
   .features = AD_FEAT_PARAMS | AD_FEAT_MISSION | AD_FEAT_COMMANDS,
 
-  .modes = MODES, .mode_count = 4,
-  .mission_cmds = MISSION_CMDS, .mission_cmd_count = 2,
+  /* AD_COUNT keeps these from drifting when you add a mode later. */
+  .modes = MODES, .mode_count = AD_COUNT(MODES),
+  .mission_cmds = MISSION_CMDS, .mission_cmd_count = AD_COUNT(MISSION_CMDS),
   .mission_capacity = 64,
 };
 ```
+
+> ### Expect to add a few accessors to your own code
+>
+> The SDK reads your state through pointers and calls into your firmware through
+> callbacks, so anything it needs has to be reachable from outside the file that owns it.
+>
+> Most firmware is not written that way, and this is normal work rather than a problem:
+>
+> - Parameters kept `static` in a config module need something returning a writable
+>   pointer, or a getter and setter pair per value.
+> - Declaring `AD_FEAT_MISSION_READ` needs a way to read a stored plan back out, which
+>   plenty of mission stores have never needed.
+>
+> Neither is hard, but both touch files that had no other reason to change. Budget for it.
 
 > ### The rule the whole thing runs on
 >
