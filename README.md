@@ -161,6 +161,7 @@ make -C test strict     # -Wconversion -Wshadow -Wpedantic
 make -C test minimal    # proves the feature switches really compile out
 make -C test portable   # cross-compiles for bare 32-bit targets
 make -C test conform    # runs the conformance tool against a live vehicle
+make -C test examples   # every example still compiles
 ```
 
 No board, no framework, no network. The suite checks every emitted frame against a

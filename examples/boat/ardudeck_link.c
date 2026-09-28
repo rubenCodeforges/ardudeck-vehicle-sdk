@@ -28,6 +28,10 @@ extern int      compass_cal(int action);
 extern unsigned now_ms_impl(void);
 extern void     link_send(const void *buf, unsigned len);
 
+/* FreeRTOS, from your platform. Declared here only so this file compiles on its own. */
+extern void     vTaskDelay(unsigned ticks);
+#define pdMS_TO_TICKS(ms) ((ms) / 10)
+
 enum { NAV_IDLE, NAV_RUNNING, NAV_HOLDING, NAV_PAUSED, NAV_RETURNING, NAV_FINISHED,
        NAV_MANUAL };
 #define NAV_MAX_ITEMS 32

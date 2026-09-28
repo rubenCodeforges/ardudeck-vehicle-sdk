@@ -58,3 +58,12 @@ portable:
 	rm -f *.o; \
 	[ $$ran -gt 0 ] || { echo "  no cross targets available"; exit 1; }; \
 	echo "portable: builds clean on $$ran bare 32-bit target(s)"
+
+# Examples are what people copy, so a broken one is a broken first impression. Compiled
+# only: they have no main, and reference the reader's own firmware through externs.
+examples:
+	@for f in ../examples/*/*.c; do \
+	  $(CC) -std=c99 -Wall -Wextra -Werror $(INCLUDE) -fsyntax-only $$f 2>&1 \
+	    && echo "  ok   $$f" || { echo "  FAIL $$f"; exit 1; }; \
+	done
+	@echo "every example compiles"
