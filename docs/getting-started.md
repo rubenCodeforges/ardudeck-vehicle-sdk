@@ -106,6 +106,22 @@ ardudeck_receive(buf, len);
 
 That is it. Four calls and a struct.
 
+> ### If your vehicle has a link failsafe, read this
+>
+> The SDK transmits whether or not anybody is listening, so its own sending tells you
+> nothing. Ask it how long the ground station has been quiet:
+>
+> ```c
+> if (ardudeck_silent_for(millis()) > 3000) enter_failsafe();
+> ```
+>
+> Returns `AD_NEVER_HEARD` until something speaks. **Do not build a failsafe on
+> `ardudeck_linked()`**, which is only a convenience over the same number.
+>
+> This matters most on a vehicle that already has a failsafe for a different link. A boat
+> flown from a phone, then given a mission from a laptop, will otherwise trigger its
+> phone-link failsafe mid-mission.
+
 > **Your clock may wrap and that is fine.** `now_ms` is expected to be a plain
 > millisecond counter. It rolls over every 49 days and the SDK handles it. Do not reset
 > it, and do not try to be clever.

@@ -148,6 +148,18 @@ case AD_CMD_SET_MODE:
 
 ---
 
+## My link failsafe fires while a mission is running from a ground station
+
+You are timing the wrong link. `ardudeck_silent_for(now)` is how long since anything was
+heard from a ground station, and that is what a MAVLink-side failsafe should watch. If
+your vehicle also has another link with its own failsafe, that one is still counting.
+
+## The vehicle shows up with the wrong icon
+
+Set `.frame` in the capability struct. The heartbeat carries a MAV_TYPE derived from it,
+and `AD_FRAME_UNKNOWN` sends a generic one that every ground station draws as a nondescript
+aircraft.
+
 ## Everything works over USB and nothing works over the radio
 
 Your link cannot carry the default rates. Cap them:

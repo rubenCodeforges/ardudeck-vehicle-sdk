@@ -5,6 +5,8 @@
 #if AD_MAX_PARAMS > 0
 
 #define MAV_PARAM_TYPE_UINT8  1
+#define MAV_PARAM_TYPE_UINT16 3
+#define MAV_PARAM_TYPE_INT16  4
 #define MAV_PARAM_TYPE_INT32  6
 #define MAV_PARAM_TYPE_REAL32 9
 
@@ -21,6 +23,8 @@ static uint8_t mav_type(const ad_param_t *p) {
   switch (p->type) {
     case AD_T_I32: return MAV_PARAM_TYPE_INT32;
     case AD_T_U8:  return MAV_PARAM_TYPE_UINT8;
+    case AD_T_I16: return MAV_PARAM_TYPE_INT16;
+    case AD_T_U16: return MAV_PARAM_TYPE_UINT16;
     default:       return MAV_PARAM_TYPE_REAL32;
   }
 }
@@ -33,8 +37,10 @@ static float read_value(const ad_param_t *p) {
   }
   if (!p->storage) return 0.0f;
   switch (p->type) {
-    case AD_T_I32: { int32_t i; memcpy(&i, p->storage, sizeof i); return (float)i; }
-    case AD_T_U8:  { uint8_t u; memcpy(&u, p->storage, sizeof u); return (float)u; }
+    case AD_T_I32: { int32_t i;  memcpy(&i, p->storage, sizeof i); return (float)i; }
+    case AD_T_U8:  { uint8_t u;  memcpy(&u, p->storage, sizeof u); return (float)u; }
+    case AD_T_I16: { int16_t i;  memcpy(&i, p->storage, sizeof i); return (float)i; }
+    case AD_T_U16: { uint16_t u; memcpy(&u, p->storage, sizeof u); return (float)u; }
     default:       { float f;   memcpy(&f, p->storage, sizeof f); return f; }
   }
 }
@@ -54,6 +60,10 @@ static bool write_value(const ad_param_t *p, float v) {
     case AD_T_I32: { int32_t i = (int32_t)(v < 0 ? v - 0.5f : v + 0.5f);
                      memcpy(p->storage, &i, sizeof i); break; }
     case AD_T_U8:  { uint8_t u = (uint8_t)(v < 0 ? 0 : v + 0.5f);
+                     memcpy(p->storage, &u, sizeof u); break; }
+    case AD_T_I16: { int16_t i = (int16_t)(v < 0 ? v - 0.5f : v + 0.5f);
+                     memcpy(p->storage, &i, sizeof i); break; }
+    case AD_T_U16: { uint16_t u = (uint16_t)(v < 0 ? 0 : v + 0.5f);
                      memcpy(p->storage, &u, sizeof u); break; }
     default:       { memcpy(p->storage, &v, sizeof v); break; }
   }

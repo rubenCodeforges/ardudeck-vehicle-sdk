@@ -347,9 +347,11 @@ static void put_i32(uint8_t *p, int32_t v) {
  * the same code.
  */
 static void test_golden_heartbeat(void) {
+  /* Byte 14 is MAV_TYPE. It must be 11, SURFACE_BOAT, because that is the frame this
+     vehicle declared. A generic 0 there loses the boat icon in every ground station. */
   static const uint8_t WANT[] = {
     0xFD, 0x09, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x03, 0x03, 0x6E, 0x52,
+    0x00, 0x00, 0x00, 0x00, 0x0B, 0x00, 0x01, 0x03, 0x03, 0x4B, 0x7F,
   };
   boot();
   ardudeck_tick(clock_ms);
@@ -981,6 +983,41 @@ static void test_an_ordinary_mission_ack_is_unchanged(void) {
   CHECK(ack[3] == 0, "mission_type %u, want 0 MISSION after padding", ack[3]);
 }
 
+/**
+ * A link failsafe needs to know when the ground station went quiet.
+ *
+ * The vehicle cannot use "a ground station exists" as proof the link is alive: a laptop
+ * can be closed without saying anything. Reporting the silence is the only honest answer.
+ */
+static void test_silence_is_reported_so_a_failsafe_can_work(void) {
+  boot();
+  CHECK(ardudeck_silent_for(clock_ms) == AD_NEVER_HEARD,
+        "claimed to have heard something before anything arrived");
+  CHECK(!ardudeck_linked(), "linked before any ground station spoke");
+
+  run_ms(100);
+  uint8_t req[2] = {1, 1};
+  inject(21, 159, req, 2);
+
+  CHECK(ardudeck_silent_for(clock_ms) < 100, "silence %u ms just after hearing one",
+        ardudeck_silent_for(clock_ms));
+  CHECK(ardudeck_linked(), "not linked immediately after hearing a ground station");
+
+  run_ms(6000);
+  CHECK(ardudeck_silent_for(clock_ms) >= 5000, "silence %u ms after six quiet seconds",
+        ardudeck_silent_for(clock_ms));
+  CHECK(!ardudeck_linked(), "still reports linked six seconds after the last word");
+}
+
+static void test_the_heartbeat_carries_the_declared_frame(void) {
+  boot();
+  run_ms(1200);
+  uint8_t hb[9];
+  CHECK(payload_of(0, hb, sizeof hb), "no heartbeat");
+  CHECK(hb[4] == 11, "MAV_TYPE %u, want 11 SURFACE_BOAT", hb[4]);
+  CHECK(hb[5] == 0, "autopilot %u, want 0 GENERIC", hb[5]);
+}
+
 /* ─── driver ───────────────────────────────────────────────────────────────── */
 
 #define RUN(t)                                                                         \
@@ -992,6 +1029,8 @@ static void test_an_ordinary_mission_ack_is_unchanged(void) {
 
 int main(void) {
   RUN(test_golden_heartbeat);
+  RUN(test_the_heartbeat_carries_the_declared_frame);
+  RUN(test_silence_is_reported_so_a_failsafe_can_work);
   RUN(test_statustext_truncates_trailing_zeros);
   RUN(test_every_frame_passes_an_independent_checksum);
   RUN(test_manifest_describes_the_vehicle);

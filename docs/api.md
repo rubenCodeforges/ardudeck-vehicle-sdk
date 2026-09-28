@@ -21,7 +21,7 @@ void ardudeck_tick(uint32_t now_ms);
 
 | | |
 |---|---|
-| `ardudeck_begin` | Call once. **Everything you pass must outlive it**, because nothing is copied. Does nothing at all if `send` or `now_ms` is NULL. |
+| `ardudeck_begin` | **Everything you pass must outlive it**, because nothing is copied. Does nothing at all if `send` or `now_ms` is NULL. Calling it again is a clean reset: every stream, transfer and learned peer is dropped, which is the right thing to do when your system id changes. |
 | `ardudeck_receive` | Any size, any split, one byte at a time is fine. |
 | `ardudeck_tick` | 20 Hz or faster. This is what actually sends. |
 
@@ -116,16 +116,26 @@ void ardudeck_rc(const uint16_t *channels, uint8_t count, uint8_t rssi);
 
 > ### Absent is not zero
 >
-> Every setter has a way to say *unknown*, and you should use it.
+> Every reading has a way to say *unknown*, and you should use it. A vehicle with no GPS
+> that reports `0, 0` puts a marker in the Gulf of Guinea, and somebody walks toward the
+> sea looking for it.
 >
-> | Reading | Say unknown with |
-> |---|---|
-> | No GPS fix | `fix = 0`, and the position is withheld entirely |
-> | No battery monitor | do not call `ardudeck_battery` |
-> | No percentage | `percent = -1` |
+> | Reading | Say unknown with | What goes out |
+> |---|---|---|
+> | GPS fix | `fix = 0` | no position at all, and the map shows nothing |
+> | Battery voltage | `NAN`, or `0`, or never call it | `0xFFFF`, which every receiver reads as unknown |
+> | Battery percentage | `percent = -1` | `-1` |
+> | Battery current | a negative value | `-1` |
+> | Roll and pitch | **never call `ardudeck_attitude`** | no `ATTITUDE` message |
+> | Active mission item | `0` | there is no unknown here, and 0 is correct when nothing is running |
 >
-> A vehicle with no GPS that reports `0, 0` puts a marker in the Gulf of Guinea, and
-> somebody walks toward the sea looking for it.
+> **A vehicle that knows its heading but not its attitude** should skip
+> `ardudeck_attitude` entirely. Heading travels separately, in `ardudeck_position`, so
+> the compass still works and the artificial horizon correctly shows nothing rather than
+> a confident level.
+>
+> `fix` is passed through as a MAVLink `GPS_FIX_TYPE`, so 4 for DGPS, 5 for RTK float and
+> 6 for RTK fixed all work and are reported as such.
 
 ### Rate limits
 
@@ -217,7 +227,16 @@ static const ad_param_t PARAMS[] = {
 };
 ```
 
-Every macro is `(NAME, POINTER, MIN, MAX, UNIT, HELP)`. `AD_F32_REBOOT` marks a value
+Available widths: `AD_F32`, `AD_I32`, `AD_U32` is absent on purpose, `AD_I16`, `AD_U16`,
+`AD_U8`. Every macro is `(NAME, POINTER, MIN, MAX, UNIT, HELP)`.
+
+`AD_COUNT(PARAMS)` gives the entry count for `param_count`, so the number cannot drift
+from the table.
+
+**The table does not have to be `const`, and the values do not have to be globals.** If
+your configuration is `static` inside another file, build the table at runtime in a
+`static ad_param_t PARAMS[N]` and point each entry at whatever accessor you have. The SDK
+only reads it, and it must outlive `ardudeck_begin`. `AD_F32_REBOOT` marks a value
 read once at boot, so the editor offers a reboot after writing it. `AD_ENUM` takes a
 getter and setter instead of a pointer, because the wire carries a number and your
 storage may not.
@@ -345,6 +364,15 @@ re-request, not a failed upload.
 
 These are MAVLink `MAV_CMD` numbers on purpose, so a plan written for your vehicle stays
 readable by every other tool that exists.
+
+**The list is not a limit.** `mission_cmds` is just an array of numbers, so you may
+declare any `MAV_CMD` your firmware honours, including ones not named here. The constants
+exist for the common cases, not as a whitelist. A ground station that does not know a
+command will decline to offer it in its picker, which is the correct outcome, and a plan
+you wrote yourself will still round-trip.
+
+`p1` to `p4` are MAVLink's `param1` to `param4`, unchanged. What they mean depends on the
+command, and the table above gives the common ones.
 
 ---
 

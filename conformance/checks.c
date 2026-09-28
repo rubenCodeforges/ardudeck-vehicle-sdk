@@ -320,8 +320,12 @@ void check_rung1(session_t *s, rung_t *r) {
                  "protocol for. The operator gets a screen that cannot work.", reserved);
   }
 
-  rung_summary(r, "%s %s fw %s, %d modes named, %d mission commands", v->vendor,
-               v->model, v->firmware, v->modes_seen, v->mission_cmds_seen);
+  if (r->result == R_FAIL) {
+    rung_summary(r, "%s %s fw %s", v->vendor, v->model, v->firmware);
+  } else {
+    rung_summary(r, "%s %s fw %s, %d modes named, %d mission commands", v->vendor,
+                 v->model, v->firmware, v->modes_seen, v->mission_cmds_seen);
+  }
 }
 
 /* ─── rung 2, parameters ───────────────────────────────────────────────────── */
@@ -414,7 +418,11 @@ void check_rung2(session_t *s, rung_t *r) {
     }
   }
 
-  rung_summary(r, "%d parameters, %d with metadata", with_value, with_meta);
+  if (r->result == R_FAIL) {
+    rung_summary(r, "%d parameters", with_value);
+  } else {
+    rung_summary(r, "%d parameters, %d with metadata", with_value, with_meta);
+  }
 }
 
 /* ─── rung 3, missions ─────────────────────────────────────────────────────── */
@@ -608,8 +616,13 @@ void check_rung3(session_t *s, rung_t *r) {
                  "restore");
   }
 
-  rung_summary(r, "%u items round-tripped, capacity %u, %d commands declared", n,
-               v->mission_capacity, v->mission_cmds_seen);
+  if (r->result == R_FAIL) {
+    rung_summary(r, "capacity %u, %d commands declared", v->mission_capacity,
+                 v->mission_cmds_seen);
+  } else {
+    rung_summary(r, "%u items round-tripped, capacity %u, %d commands declared", n,
+                 v->mission_capacity, v->mission_cmds_seen);
+  }
 }
 
 /* ─── rung 4, commands ─────────────────────────────────────────────────────── */
@@ -654,7 +667,8 @@ void check_rung4(session_t *s, rung_t *r) {
                  "operator presses again", took);
   }
 
-  rung_summary(r, "unknown command refused in %u ms", took);
+  if (r->result == R_FAIL) rung_summary(r, "answered in %u ms", took);
+  else rung_summary(r, "unknown command refused in %u ms", took);
 }
 
 /* ─── calibration ──────────────────────────────────────────────────────────── */

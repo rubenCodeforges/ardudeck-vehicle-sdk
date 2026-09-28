@@ -33,6 +33,12 @@
 #define AD_RX_BUFFER 280
 #endif
 
+/** Silence after which ardudeck_linked() reports false. Your own failsafe should use
+ *  ardudeck_silent_for() with its own number rather than this one. */
+#ifndef AD_LINK_TIMEOUT_MS
+#define AD_LINK_TIMEOUT_MS 5000
+#endif
+
 #ifndef AD_DEFAULT_SYSTEM_ID
 #define AD_DEFAULT_SYSTEM_ID 1
 #endif

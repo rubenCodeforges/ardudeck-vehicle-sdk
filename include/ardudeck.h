@@ -92,7 +92,9 @@ typedef struct {
 
 /* ─── parameters ───────────────────────────────────────────────────────────── */
 
-typedef enum { AD_T_F32 = 0, AD_T_I32 = 1, AD_T_U8 = 2 } ad_ptype_t;
+typedef enum {
+  AD_T_F32 = 0, AD_T_I32 = 1, AD_T_U8 = 2, AD_T_I16 = 3, AD_T_U16 = 4,
+} ad_ptype_t;
 
 #define AD_PARAM_REBOOT   (1u << 0)
 #define AD_PARAM_READONLY (1u << 1)
@@ -126,6 +128,16 @@ struct ad_param {
     .min_value = (float)(MIN), .max_value = (float)(MAX), .increment = 1.0f,           \
     .type = AD_T_I32 }
 
+#define AD_I16(NAME, PTR, MIN, MAX, UNIT, HELP)                                        \
+  { .name = (NAME), .unit = (UNIT), .help = (HELP), .storage = (PTR),                  \
+    .min_value = (float)(MIN), .max_value = (float)(MAX), .increment = 1.0f,           \
+    .type = AD_T_I16 }
+
+#define AD_U16(NAME, PTR, MIN, MAX, UNIT, HELP)                                        \
+  { .name = (NAME), .unit = (UNIT), .help = (HELP), .storage = (PTR),                  \
+    .min_value = (float)(MIN), .max_value = (float)(MAX), .increment = 1.0f,           \
+    .type = AD_T_U16 }
+
 #define AD_U8(NAME, PTR, MIN, MAX, UNIT, HELP)                                         \
   { .name = (NAME), .unit = (UNIT), .help = (HELP), .storage = (PTR),                  \
     .min_value = (float)(MIN), .max_value = (float)(MAX), .increment = 1.0f,           \
@@ -137,7 +149,18 @@ struct ad_param {
     .min_value = (MIN), .max_value = (MAX), .type = AD_T_F32,                          \
     .flags = AD_PARAM_REBOOT }
 
-/** Named choices, so the operator picks a word instead of looking up a number. */
+/**
+ * Named choices, so the operator picks a word instead of looking up a number.
+ *
+ * The wire carries a number, so GET and SET convert to and from whatever you store,
+ * which is often a string. Their signatures are the `get` and `set` members of
+ * `ad_param`, and the value handed across is the option's index:
+ *
+ *     static bool fs_get(const ad_param_t *p, float *out)  { *out = (float)action_index(); return true; }
+ *     static bool fs_set(const ad_param_t *p, float value) { return set_action((int)value); }
+ *
+ * OPTIONS is a `const char *const []` of COUNT labels, index 0 first.
+ */
 #define AD_ENUM(NAME, GET, SET, OPTIONS, COUNT, HELP)                                  \
   { .name = (NAME), .unit = "", .help = (HELP), .options = (OPTIONS),                  \
     .option_count = (COUNT), .get = (GET), .set = (SET),                               \
@@ -354,7 +377,27 @@ typedef enum {
 
 void ardudeck_rate_limit(ad_stream_t stream, float max_hz);
 
-/** True once any ground station has been heard from. Never required, sometimes useful. */
+/**
+ * Milliseconds since anything was last heard from a ground station.
+ *
+ * Returns `AD_NEVER_HEARD` if nothing ever has. **This is what a link failsafe should
+ * watch.** A vehicle with its own failsafe cannot use the presence of a ground station
+ * as proof the link is alive, because a laptop can go away without saying so.
+ *
+ *     if (ardudeck_silent_for(now) > 3000) enter_failsafe();
+ *
+ * Only inbound traffic counts. The SDK transmits regardless, so its own sending tells
+ * you nothing about whether anyone is listening.
+ */
+#define AD_NEVER_HEARD 0xFFFFFFFFu
+uint32_t ardudeck_silent_for(uint32_t now_ms);
+
+/**
+ * True when a ground station has been heard from within the last few seconds.
+ *
+ * A convenience over `ardudeck_silent_for`. Do not build a failsafe on this: it hides
+ * the number your own timeout should be comparing against.
+ */
 bool ardudeck_linked(void);
 
 #ifdef __cplusplus

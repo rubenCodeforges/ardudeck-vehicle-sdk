@@ -70,8 +70,12 @@ in ArduDeck.
 
 ## UDP broadcast
 
-Nothing to configure on either end. Broadcast to port 14550, and ArduDeck answers whoever
-it hears.
+Nothing to configure on either end. **Send to port 14550**, broadcast, and ArduDeck
+answers whoever it hears.
+
+You do not need to listen on a fixed port. A ground station replies to the address and
+port your packets came *from*, so one socket used for both directions is all it takes.
+Bind it to whatever the operating system gives you and leave it alone.
 
 ```mermaid
 sequenceDiagram

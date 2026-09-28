@@ -19,7 +19,14 @@ void ad_learn_peer(uint8_t sysid, uint8_t compid) {
   ad_g.last_inbound = ad_g.now;
 }
 
-bool ardudeck_linked(void) { return ad_g.linked; }
+uint32_t ardudeck_silent_for(uint32_t now_ms) {
+  if (!ad_g.linked) return AD_NEVER_HEARD;
+  return (uint32_t)(now_ms - ad_g.last_inbound);
+}
+
+bool ardudeck_linked(void) {
+  return ardudeck_silent_for(ad_g.now) < AD_LINK_TIMEOUT_MS;
+}
 
 void ad_statustext(ad_severity_t severity, const char *text) {
   if (!ad_g.begun || !text) return;
@@ -42,18 +49,34 @@ void ad_command_ack(uint16_t cmd, uint8_t result) {
 
 /* ─── outbound state ───────────────────────────────────────────────────────── */
 
+/** MAV_TYPE for a declared frame. The icon, and the HUD layout, come from this. */
+static uint8_t mav_type_for_frame(ad_frame_t frame) {
+  switch (frame) {
+    case AD_FRAME_MULTIROTOR:      return 2;  /* QUADROTOR */
+    case AD_FRAME_FIXED_WING:      return 1;
+    case AD_FRAME_VTOL:            return 21; /* VTOL_TILTROTOR */
+    case AD_FRAME_HELICOPTER:      return 4;
+    case AD_FRAME_ROVER:           return 10; /* GROUND_ROVER */
+    case AD_FRAME_SURFACE_BOAT:    return 11;
+    case AD_FRAME_SUBMARINE:       return 12;
+    case AD_FRAME_ANTENNA_TRACKER: return 5;
+    default:                       return 0;  /* GENERIC */
+  }
+}
+
 static void send_heartbeat(void) {
   uint8_t base_mode = AD_MODE_FLAG_CUSTOM;
   if (ad_g.armed) base_mode = (uint8_t)(base_mode | AD_MODE_FLAG_ARMED);
 
   ad_tx_begin();
   ad_put_u32(ad_g.mode);
+  ad_put_u8(mav_type_for_frame(cfg()->caps ? cfg()->caps->frame : AD_FRAME_UNKNOWN));
   /*
-   * Deliberately generic. The frame kind and everything else worth knowing travel in
-   * ARDUDECK_MANIFEST, and claiming an ArduPilot or PX4 autopilot id would make ground
-   * stations apply that firmware's conventions to a vehicle that does not share them.
+   * The AUTOPILOT field stays generic on purpose: claiming ArduPilot or PX4 makes a
+   * ground station apply that firmware's conventions to a vehicle that does not share
+   * them. The TYPE field above is the opposite case, because every ground station draws
+   * its icon from it and a generic one loses the vehicle's identity everywhere.
    */
-  ad_put_u8(AD_MAV_TYPE_GENERIC);
   ad_put_u8(AD_MAV_AUTOPILOT_GENERIC);
   ad_put_u8(base_mode);
   ad_put_u8(ad_g.armed ? 4 : 3); /* MAV_STATE_ACTIVE : MAV_STATE_STANDBY */
