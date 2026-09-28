@@ -96,6 +96,32 @@ them.
 Your callbacks run inside `tick` and `receive`, and your `send` can be called from either.
 Keep both short.
 
+### You have just added a second ground station
+
+This one catches people, and it is not about the SDK's own state.
+
+If your firmware already has a way to change things, a web app, a phone app, a companion
+board, its own protocol, then that path has always been the only writer. Adopting this SDK
+gives you a second one. `on_param_set` and `on_mission` run on whatever task drives the
+SDK, and they write the same settings struct, the same flash and the same mission your
+existing interface writes.
+
+The two now run at once. Somebody saving a setting in your own app while ArduDeck writes a
+parameter is two tasks writing the same memory, and on most firmware there is nothing
+stopping them, because until now there was only ever one writer and a lock would have been
+pointless.
+
+So before you ship:
+
+- Put a mutex around the settings struct and whatever persists it
+- Put one around loading a mission
+- Or drive the SDK from the same task that already serves your own interface, which costs
+  nothing and makes the question go away
+
+Calling into the SDK from your existing interface is fine and needs no lock, as long as it
+is only setting a flag the SDK task reads later. Doing real work there is the thing to
+avoid.
+
 ---
 
 ## Telling it your state

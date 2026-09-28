@@ -62,8 +62,27 @@ portable:
 # Examples are what people copy, so a broken one is a broken first impression. Compiled
 # only: they have no main, and reference the reader's own firmware through externs.
 examples:
-	@for f in ../examples/*/*.c; do \
+	@for f in ../examples/*/ardudeck_link.c; do \
+	  [ -f "$$f" ] || continue; \
 	  $(CC) -std=c99 -Wall -Wextra -Werror $(INCLUDE) -fsyntax-only $$f 2>&1 \
 	    && echo "  ok   $$f" || { echo "  FAIL $$f"; exit 1; }; \
 	done
+	@$(MAKE) --no-print-directory transports
 	@echo "every example compiles"
+
+# The transport examples target real boards, so each is checked against just enough of
+# that platform's headers to be worth trusting. See platform-shims/README.md.
+transports:
+	@for pair in esp32:esp32_udp.c stm32:stm32_uart.c zephyr:zephyr_uart.c \
+	             linux:linux_udp.c; do \
+	  p=$${pair%%:*}; f=$${pair##*:}; \
+	  inc=""; [ "$$p" = linux ] || inc="-Iplatform-shims/$$p"; \
+	  $(CC) -std=c99 -Wall -Wextra -Werror $(INCLUDE) $$inc -fsyntax-only \
+	    ../examples/transports/$$f 2>&1 \
+	    && echo "  ok   transports/$$f ($$p)" \
+	    || { echo "  FAIL transports/$$f ($$p)"; exit 1; }; \
+	done
+	@c++ -std=c++11 -Wall -Wextra -Werror $(INCLUDE) -Iplatform-shims/arduino \
+	  -include Arduino.h -fsyntax-only -x c++ ../examples/transports/arduino_serial.ino \
+	  && echo "  ok   transports/arduino_serial.ino (arduino)" \
+	  || { echo "  FAIL transports/arduino_serial.ino"; exit 1; }

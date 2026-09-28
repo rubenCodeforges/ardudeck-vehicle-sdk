@@ -52,6 +52,30 @@ Pick whichever matches your project.
 | **CMake** | `add_subdirectory(ardudeck-vehicle-sdk)` then link `ardudeck::sdk`. |
 | **Makefile, anything else** | Compile `src/*.c` and put `include/` on your include path. That is the whole integration. |
 
+### Working examples
+
+Complete files, all of which compile in CI, so nothing here is pseudocode.
+
+| Example | What it shows |
+|---|---|
+| [`examples/boat`](examples/boat/ardudeck_link.c) | A real surface vehicle: rungs 0 to 4, a coverage compass routine, and a second control surface beside the phone app it already had |
+| [`examples/quad`](examples/quad/ardudeck_link.c) | A multirotor: attitude and altitude, takeoff, a six point accelerometer routine, and a dropdown parameter |
+
+The link layer is the only part that is board specific, and it is small:
+
+| Board | File |
+|---|---|
+| ESP-IDF | [`transports/esp32_udp.c`](examples/transports/esp32_udp.c), UDP on the board's own AP |
+| Arduino | [`transports/arduino_serial.ino`](examples/transports/arduino_serial.ino), the shortest thing that appears on a map |
+| STM32 HAL | [`transports/stm32_uart.c`](examples/transports/stm32_uart.c), UART with DMA receive |
+| Zephyr | [`transports/zephyr_uart.c`](examples/transports/zephyr_uart.c), interrupt driven UART |
+| Linux | [`transports/linux_udp.c`](examples/transports/linux_udp.c), a companion computer, or your desktop against SITL |
+
+Start with the Linux one if you have no hardware yet: it builds and runs where you are
+reading this, so you can point ArduDeck at your logic before a board exists.
+
+---
+
 On ESP-IDF the `REQUIRES` line is the step people miss. Without it the component builds
 but your own file cannot see `ardudeck.h`:
 

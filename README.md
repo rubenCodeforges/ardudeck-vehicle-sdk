@@ -140,8 +140,13 @@ test suite.
 | [Conformance](docs/conformance.md) | Proving it |
 | [Troubleshooting](docs/troubleshooting.md) | Symptoms and their causes |
 
-A complete worked integration for a real ESP32 boat is in
-[`examples/boat/`](examples/boat/ardudeck_link.c).
+Complete worked integrations, all compiled in CI:
+
+- [`examples/boat/`](examples/boat/ardudeck_link.c), a real ESP32 surface vehicle
+- [`examples/quad/`](examples/quad/ardudeck_link.c), a multirotor, with attitude,
+  altitude, takeoff, a six point accelerometer routine and a dropdown parameter
+- [`examples/transports/`](examples/transports), the link layer for ESP-IDF, Arduino,
+  STM32 HAL, Zephyr and Linux. This is the only board specific part.
 
 ---
 

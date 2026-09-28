@@ -3,6 +3,19 @@
 The SDK produces complete frames and hands them to you. It has no idea what happens next,
 which means anything that moves bytes will do.
 
+**Working files for five boards**, each of them compiled in CI rather than written out
+from memory:
+
+| Board | File | Link |
+|---|---|---|
+| ESP-IDF | [`esp32_udp.c`](examples/transports/esp32_udp.c) | UDP on the board's own AP |
+| Arduino | [`arduino_serial.ino`](examples/transports/arduino_serial.ino) | Hardware serial |
+| STM32 HAL | [`stm32_uart.c`](examples/transports/stm32_uart.c) | UART, DMA receive |
+| Zephyr | [`zephyr_uart.c`](examples/transports/zephyr_uart.c) | Interrupt driven UART |
+| Linux | [`linux_udp.c`](examples/transports/linux_udp.c) | POSIX socket, and SITL |
+
+If none of those is your board, the rest of this page is what they all have in common.
+
 ```c
 static void sink(const uint8_t *buf, size_t len, void *user) {
   (void)user;
