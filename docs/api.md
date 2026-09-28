@@ -249,10 +249,48 @@ void params_init(void) {
 ```
 
 The SDK only ever reads the table, but it keeps the pointer, so it must outlive
-`ardudeck_begin`. A `static` array is the simplest way to be sure. `AD_F32_REBOOT` marks a value
-read once at boot, so the editor offers a reboot after writing it. `AD_ENUM` takes a
-getter and setter instead of a pointer, because the wire carries a number and your
-storage may not.
+`ardudeck_begin`. A `static` array is the simplest way to be sure. `AD_F32_REBOOT` marks a value read once at boot, so the editor offers a reboot after
+writing it.
+
+### `AD_ENUM`, in full
+
+The wire carries a number, and your storage very often does not, so this one takes a
+getter and a setter instead of a pointer. The value handed across is **the option's
+index**, counting from zero.
+
+```c
+/* Labels shown in the dropdown. Index 0 first, and COUNT must match. */
+static const char *const FS_OPTIONS[] = { "Continue", "Hold", "Return home", "Stop" };
+
+/* Signatures are the `get` and `set` members of ad_param. Return false to refuse. */
+static bool fs_get(const ad_param_t *p, float *out) {
+  (void)p;
+  *out = (float)current_failsafe_index();
+  return true;
+}
+
+static bool fs_set(const ad_param_t *p, float value) {
+  (void)p;
+  return set_failsafe_action((int)value);          /* 0..3 here */
+}
+
+AD_ENUM("FS_ACTION", fs_get, fs_set, FS_OPTIONS, AD_COUNT(FS_OPTIONS),
+        "What to do when the link fails"),
+```
+
+| Argument | Type |
+|---|---|
+| `GET` | `bool (*)(const ad_param_t *p, float *out)` |
+| `SET` | `bool (*)(const ad_param_t *p, float value)` |
+| `OPTIONS` | `const char *const []`, one label per choice |
+| `COUNT` | how many labels, so `AD_COUNT(OPTIONS)` |
+
+The range is derived for you: minimum 0, maximum `COUNT - 1`, step 1. There is no unit,
+because a named choice has none.
+
+**Accessors are not only for enums.** Any parameter may use `get` and `set` instead of
+`storage`, which is the escape hatch when a value is computed, lives behind a lock, or is
+kept somewhere a pointer cannot reach.
 
 ```mermaid
 flowchart LR
