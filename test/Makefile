@@ -68,6 +68,11 @@ examples:
 	    && echo "  ok   $$f" || { echo "  FAIL $$f"; exit 1; }; \
 	done
 	@$(MAKE) --no-print-directory transports
+	@$(MAKE) --no-print-directory -C ../examples/rover clean >/dev/null 2>&1 || true
+	@$(MAKE) --no-print-directory -C ../examples/rover >/dev/null 2>&1 \
+	  && echo "  ok   examples/rover links and builds" \
+	  || { echo "  FAIL examples/rover"; exit 1; }
+	@$(MAKE) --no-print-directory -C ../examples/rover clean >/dev/null 2>&1 || true
 	@echo "every example compiles"
 
 # The transport examples target real boards, so each is checked against just enough of
