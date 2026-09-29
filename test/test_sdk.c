@@ -160,7 +160,7 @@ static const ad_calibration_t CALS[] = {
 };
 
 static const ad_capability_t CAPS = {
-  .vendor = "rctestflight", .model = "boat kit", .firmware = "0.4.1",
+  .vendor = "acme", .model = "boat kit", .firmware = "0.4.1",
   .frame = AD_FRAME_SURFACE_BOAT,
   .features = AD_FEAT_PARAMS | AD_FEAT_MISSION | AD_FEAT_COMMANDS |
               AD_FEAT_CALIBRATION | AD_FEAT_MISSION_READ,
@@ -432,7 +432,7 @@ static void test_manifest_describes_the_vehicle(void) {
   CHECK(p[11] == 3, "mode count %u", p[11]);
   CHECK(p[12] == 2, "mission cmd count %u", p[12]);
   CHECK(p[13] == 2, "cal count %u", p[13]);
-  CHECK(memcmp(p + 14, "rctestflight", 12) == 0, "vendor wrong");
+  CHECK(memcmp(p + 14, "acme", 4) == 0, "vendor wrong");
 }
 
 static void test_every_mode_is_named(void) {

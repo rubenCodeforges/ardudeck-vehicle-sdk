@@ -1,8 +1,8 @@
 /*
  * A real vehicle, end to end.
  *
- * The rctestflight ESP32 boat: parameter names and flight modes as that firmware
- * actually has them, so this reads as an integration rather than a demonstration.
+ * A small ESP32 boat: parameter names and flight modes as a working firmware really has
+ * them, so this reads as an integration rather than a demonstration.
  * Rungs 0 through 4 plus calibration, in about sixty lines of declaration.
  *
  * The boat keeps its own WebSocket and JSON protocol for the phone that flies it. This
@@ -53,7 +53,7 @@ static const ad_mode_t MODES[] = {
 };
 
 static const ad_capability_t CAPS = {
-  .vendor = "rctestflight",
+  .vendor = "acme",
   .model = "boat kit",
   .firmware = "0.4.1",
   .frame = AD_FRAME_SURFACE_BOAT,
