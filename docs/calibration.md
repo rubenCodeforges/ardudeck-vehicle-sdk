@@ -80,9 +80,8 @@ percentage cannot say that. Three tracks can:
 ```c
 static const ad_cal_track_t COMPASS_TRACKS[] = {
   /* label shown to the operator, unit, target */
-  { "Sectors turned through", "",    12.0f  },
-  { "Total turning",          "deg", 720.0f },
-  { "Gyro agreement",         "",    0.7f   },
+  { "Headings covered", "",    12.0f  },
+  { "Total rotation",   "deg", 720.0f },
 };
 ```
 
@@ -90,7 +89,7 @@ Then report as the routine runs, as often as you like:
 
 ```c
 ardudeck_cal_progress("compass", &(ad_cal_progress_t){
-  .track = { sectors_seen, gyro_turn_deg, agreement },
+  .track = { headings_seen, total_rotation_deg },
   .percent = pct,
   .hint = turning_too_fast ? "Turn more slowly" : NULL,
 });
@@ -111,9 +110,9 @@ static const ad_calibration_t CALS[] = {
     .name = "Compass",
     .kind = AD_CAL_COVERAGE,
     .requirements = AD_CAL_REQ_DISARMED,
-    .warning = "Turn the boat through two full circles by hand, away from "
-               "steel and away from the trailer.",
-    .tracks = COMPASS_TRACKS, .track_count = 3,
+    .warning = "Turn the boat through two full circles, on the water and away from "
+               "steel hulls, pontoons and the launch ramp.",
+    .tracks = COMPASS_TRACKS, .track_count = 2,
   },
 };
 ```

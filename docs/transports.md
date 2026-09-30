@@ -136,9 +136,9 @@ and a missing heartbeat reads to the operator as a dead aircraft.
 
 ## Two links at once
 
-Perfectly fine, and often the right answer. The boat in `examples/` keeps its own
-WebSocket for the phone on the dock and adds MAVLink for a laptop, because a browser
-cannot open a UDP socket and never will.
+Perfectly fine, and often the right answer. A vehicle that already has a controller of
+its own keeps that link and adds MAVLink beside it: the two carry different traffic to
+different people, and neither replaces the other.
 
 Call `sink` for both, and feed both into `ardudeck_receive`. The SDK has no notion of
 which link something arrived on and does not need one.

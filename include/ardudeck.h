@@ -349,6 +349,16 @@ void ardudeck_tick(uint32_t now_ms);
 void ardudeck_position(double lat, double lon, float speed_ms, float heading_deg,
                        uint8_t fix, uint8_t sats);
 void ardudeck_altitude(float amsl_m, float relative_m, float climb_ms);
+
+/**
+ * Indicated airspeed, for anything with a wing.
+ *
+ * Without this, the airspeed shown is the groundspeed you passed to `ardudeck_position`,
+ * which is the same number only in still air. On a fixed wing the difference is the whole
+ * point: the map is drawn from groundspeed, and the number a pilot flies by, the one that
+ * stalls the aircraft, is this one. Do not call it if you have no sensor.
+ */
+void ardudeck_airspeed(float airspeed_ms);
 void ardudeck_attitude(float roll, float pitch, float yaw); /**< radians */
 void ardudeck_status(uint16_t mode, uint16_t active_item, float battery_v, bool armed);
 void ardudeck_battery(float volts, float amps, int8_t percent); /**< -1 unknown */

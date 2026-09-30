@@ -74,9 +74,11 @@ typedef struct {
   int32_t lat, lon;
   bool   have_position;
   float  speed_ms, heading_deg;
+  float  airspeed_ms;
   uint8_t fix, sats;
   float  amsl_m, relative_m, climb_ms;
   bool   have_altitude;
+  bool   have_airspeed;
   float  roll, pitch, yaw;
   bool   have_attitude;
   uint16_t mode, active_item;

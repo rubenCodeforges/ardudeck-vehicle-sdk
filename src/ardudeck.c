@@ -140,7 +140,12 @@ static void send_position(void) {
 
 static void send_vfr_hud(void) {
   ad_tx_begin();
-  ad_put_f32(ad_g.speed_ms);
+  /*
+   * Airspeed first, groundspeed second. They are the same number until somebody reports
+   * an airspeed, which only matters on something with a wing: the map is drawn from
+   * groundspeed, and the number that stalls you is the other one.
+   */
+  ad_put_f32(ad_g.have_airspeed ? ad_g.airspeed_ms : ad_g.speed_ms);
   ad_put_f32(ad_g.speed_ms);
   ad_put_f32(ad_g.have_altitude ? ad_g.amsl_m : 0.0f);
   ad_put_f32(ad_g.climb_ms);
@@ -555,6 +560,11 @@ void ardudeck_position(double lat, double lon, float speed_ms, float heading_deg
   ad_g.fix = fix;
   ad_g.sats = sats;
   ad_g.have_position = fix >= 2;
+}
+
+void ardudeck_airspeed(float airspeed_ms) {
+  ad_g.airspeed_ms = airspeed_ms;
+  ad_g.have_airspeed = true;
 }
 
 void ardudeck_altitude(float amsl_m, float relative_m, float climb_ms) {

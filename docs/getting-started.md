@@ -44,6 +44,12 @@ arrives as a callback your own code can refuse.
 
 Pick whichever matches your project.
 
+Get it first:
+
+```sh
+git clone https://github.com/rubenCodeforges/ardudeck-vehicle-sdk
+```
+
 | Your build | What to do |
 |---|---|
 | **ESP-IDF** | Copy the repo into `components/ardudeck/`, or add it to `idf_component.yml`, then add `ardudeck` to `REQUIRES` in your own component's `CMakeLists.txt`. |
@@ -196,8 +202,12 @@ See [Links](transports.md) for radio modems, rate limits and the rest.
 
 ## Step 4: look at it
 
-Open ArduDeck, connect to the serial port or UDP 14550, and you should see your vehicle
-on the map with a moving instrument panel.
+If you do not have ArduDeck yet, it is a free download for Windows, macOS and Linux:
+**[ardudeck.com](https://ardudeck.com/#download)**. The SDK is the library your firmware
+compiles against; ArduDeck is the application on your laptop. You need both.
+
+Open it, connect to your serial port or to UDP 14550, and you should see your vehicle on
+the map with a moving instrument panel.
 
 **If nothing appears**, do not guess. Run the conformance tool, which will tell you what
 is wrong in one line:

@@ -940,6 +940,37 @@ static void test_an_undeclared_mode_is_refused(void) {
 }
 
 /**
+ * Airspeed and groundspeed are the same number until somebody says otherwise.
+ *
+ * VFR_HUD carries both, and a vehicle with no airspeed sensor has nothing better to put
+ * in the first field than the groundspeed it already reported. A wing does, and on a
+ * windy day the two differ by exactly the amount that matters.
+ */
+static void test_airspeed_defaults_to_groundspeed_then_overrides(void) {
+  boot();
+  ardudeck_position(52.0, 13.0, 7.5f, 90.0f, 3, 11);
+  run_ms(1200);
+
+  uint8_t hud[20];
+  CHECK(payload_of(74, hud, sizeof hud), "no VFR_HUD");
+  float airspeed, groundspeed;
+  memcpy(&airspeed, &hud[0], 4);
+  memcpy(&groundspeed, &hud[4], 4);
+  CHECK(airspeed == 7.5f, "airspeed %f, want the groundspeed", (double)airspeed);
+  CHECK(groundspeed == 7.5f, "groundspeed %f", (double)groundspeed);
+
+  /* Now a wing reports what the pitot says, into wind. */
+  drain();
+  ardudeck_airspeed(12.0f);
+  run_ms(1200);
+  CHECK(payload_of(74, hud, sizeof hud), "no VFR_HUD after airspeed");
+  memcpy(&airspeed, &hud[0], 4);
+  memcpy(&groundspeed, &hud[4], 4);
+  CHECK(airspeed == 12.0f, "airspeed %f, want 12", (double)airspeed);
+  CHECK(groundspeed == 7.5f, "groundspeed %f, want it untouched", (double)groundspeed);
+}
+
+/**
  * A ground station watching a mission sends its heartbeat and very little else.
  *
  * The regression: HEARTBEAT was missing from the SDK's inbound table, so those frames
@@ -1160,6 +1191,7 @@ int main(void) {
   RUN(test_an_undeclared_legacy_mode_is_refused);
   RUN(test_a_ground_station_heartbeat_counts_as_contact);
   RUN(test_another_vehicles_heartbeat_is_not_contact);
+  RUN(test_airspeed_defaults_to_groundspeed_then_overrides);
   RUN(test_calibration_start_reaches_the_firmware);
   RUN(test_calibration_refused_while_armed);
   RUN(test_calibration_progress_is_throttled);
