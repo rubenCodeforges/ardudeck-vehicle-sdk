@@ -4,6 +4,18 @@ Find your symptom. Each one has a cause, not a list of things to try.
 
 ---
 
+
+## The vehicle is on the map but has no parameters or calibrations
+
+Check the ArduDeck version first: the profile needs **0.1.2 or newer**.
+
+Rung 0 is ordinary MAVLink, so an older build shows the vehicle and moves the instruments.
+Everything above it rides in the profile, which earlier versions do not read, so those
+screens are absent rather than broken and nothing is logged either side.
+
+If the version is right, run the conformance tool: a manifest that never arrives, or a
+feature bit you did not declare, produces exactly the same symptom.
+
 ## Nothing appears in ArduDeck at all
 
 ```mermaid

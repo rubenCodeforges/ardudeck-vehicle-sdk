@@ -38,7 +38,7 @@ flowchart TB
 | | How |
 |---|---|
 | **The SDK** | `git clone https://github.com/rubenCodeforges/ardudeck-vehicle-sdk` |
-| **ArduDeck** | Free for Windows, macOS and Linux: **[ardudeck.com](https://ardudeck.com/#download)** |
+| **ArduDeck 0.1.2 or newer** | Free for Windows, macOS and Linux: **[ardudeck.com](https://ardudeck.com/#download)**. Earlier versions do not read the profile, so your vehicle appears on the map but its parameters, missions and calibrations stay hidden |
 
 The SDK is the library your firmware compiles against; ArduDeck is the application on your
 laptop. You need both.

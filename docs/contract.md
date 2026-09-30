@@ -52,8 +52,9 @@ sequenceDiagram
 Notice what the two grey blocks alone would give you: a dot on a map, and a list of names
 with numbers beside them. The teal is the difference between that and a ground station.
 
-**Draft.** Nothing here is frozen, and the message id block is provisional. Do not ship a
-product against it yet.
+**Experimental.** Nothing here is frozen, and ids 43000 to 43011 are not reserved with the
+MAVLink project yet. Build on it; do not ship a product on it. The reasoning, and what we
+are waiting for, is in [Status](status.md).
 
 ---
 
@@ -83,8 +84,7 @@ three things it has no message for:
 | How its calibrations are **shaped** | `ARDUDECK_CAL_DECLARE`, `_POSE`, `_TRACK`, `_CONTROL`, `_PROGRESS`, `_RESULT` |
 
 Definitions live in [`profile/ardudeck.xml`](../profile/ardudeck.xml), which is the source
-of truth for both sides. Ids 43000 to 43049 are provisional and not yet registered with
-the MAVLink project.
+of truth for both sides. Ids 43000 to 43049 are provisional: see [Status](status.md).
 
 ### Two rules about payload length
 

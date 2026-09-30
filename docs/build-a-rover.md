@@ -39,7 +39,7 @@ Four things, none of which costs anything.
 | **ESP-IDF v5.3+** | Espressif's toolchain. Follow their [getting started guide](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/get-started/); it installs the compiler, `idf.py` and the flasher |
 | **Python 3** | Standard library only, nothing to install |
 | **The SDK** | `git clone https://github.com/rubenCodeforges/ardudeck-vehicle-sdk` (step 5 says exactly where to put it) |
-| **ArduDeck** | Free for Windows, macOS and Linux: **[ardudeck.com](https://ardudeck.com/#download)** |
+| **ArduDeck 0.1.2 or newer** | Free for Windows, macOS and Linux: **[ardudeck.com](https://ardudeck.com/#download)**. Earlier versions do not read the profile, so your vehicle appears on the map but its parameters, missions and calibrations stay hidden |
 
 On Windows, do all of this in WSL. Check the toolchain works before you order parts:
 

@@ -206,6 +206,11 @@ If you do not have ArduDeck yet, it is a free download for Windows, macOS and Li
 **[ardudeck.com](https://ardudeck.com/#download)**. The SDK is the library your firmware
 compiles against; ArduDeck is the application on your laptop. You need both.
 
+**Use 0.1.2 or newer.** Reading the profile, which is what turns a declared parameter table
+into an editor and a declared calibration into a screen, arrived in 0.1.2. On an earlier
+build your vehicle still appears on the map and the instruments still move, because that is
+ordinary MAVLink, but everything above rung 0 stays hidden with nothing to say why.
+
 Open it, connect to your serial port or to UDP 14550, and you should see your vehicle on
 the map with a moving instrument panel.
 

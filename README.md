@@ -150,11 +150,37 @@ Complete worked integrations, all compiled in CI:
 
 ---
 
-## Status
+## Status: experimental
 
-**Draft.** The contract is not frozen, and message ids 43000 to 43049 are provisional and
-not yet registered with the MAVLink project. Fine to build against, not yet something to
-ship a product on. Talk to us and we will tell you exactly where it stands.
+This SDK is **experimental**, and the honest reason is worth stating plainly.
+
+Its twelve messages occupy ids **43000 to 43011**. MAVLink message ids are one global
+namespace, and nothing has reserved that range for us. We picked it because it looked
+empty, which is not the same as owning it. That matters: an earlier draft of this profile
+sat at 42000, which turned out to belong to ICAROUS, and the symptom was frames being
+silently dropped with nothing in any log to say why.
+
+**Reserving the block means a pull request to the [MAVLink project](https://github.com/mavlink/mavlink),
+and we are not sending it yet.** A reservation is a promise that the layouts are stable.
+Proposing one for a contract still being shaped by the first firmwares built on it would
+be asking other people to carry our mistakes. We would rather find those mistakes now,
+while moving a field costs us a rebuild instead of costing you a fleet.
+
+So the order is: build vehicles on it, let the rough edges show, and propose the block once
+the shape has stopped changing.
+
+### What that means for you
+
+| | |
+|---|---|
+| **Building, experimenting, teaching** | Go ahead. That is what it is for, and it is how the ids get earned |
+| **Shipping a product** | Not yet. If the block moves, deployed vehicles stop being seen, and they stop quietly |
+| **Following along** | The ids and layouts live in [`profile/ardudeck.xml`](profile/ardudeck.xml), and any change to them will be called out, not slipped in |
+
+None of this touches rung 0. Position, attitude and battery are ordinary MAVLink common
+messages with ids that have been settled for years, so a vehicle that only does telemetry
+is on solid ground today. It is the profile on top, the part that describes what your
+vehicle *is*, that is still provisional.
 
 ---
 
