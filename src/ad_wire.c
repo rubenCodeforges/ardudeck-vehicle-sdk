@@ -115,6 +115,12 @@ static const ad_msg_def_t INBOUND[] = {
   AD_MSG_COMMAND_LONG, AD_MSG_MISSION_COUNT, AD_MSG_MISSION_ITEM_INT,
   AD_MSG_MISSION_REQUEST_INT, AD_MSG_MISSION_REQUEST_LIST, AD_MSG_MISSION_ACK,
   AD_MSG_MISSION_CLEAR_ALL, AD_MSG_CAL_CONTROL, AD_MSG_REQUEST, AD_MSG_SET_MODE,
+  /*
+   * A message missing from this list is dropped at the checksum, before any
+   * handler sees it, and silently: adding a handler and a dispatch entry and
+   * forgetting this one looks exactly like a vehicle that ignores the message.
+   */
+  AD_MSG_MANUAL_CONTROL,
 };
 
 bool ad_known_extra(uint32_t msgid, uint8_t *extra) {

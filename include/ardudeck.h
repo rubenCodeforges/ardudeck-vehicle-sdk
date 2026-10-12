@@ -61,7 +61,7 @@ typedef enum {
  * prevent, so the conformance tool reports it.
  */
 #define AD_FEAT_GEOFENCE       (1u << 4)  /* reserved, not implemented */
-#define AD_FEAT_MANUAL_CONTROL (1u << 6)  /* reserved, not implemented */
+#define AD_FEAT_MANUAL_CONTROL (1u << 6)  /* MANUAL_CONTROL in, see on_manual */
 #define AD_FEAT_LOG_DOWNLOAD   (1u << 7)  /* reserved, not implemented */
 
 #define AD_MODE_LOCAL_ONLY (1u << 0)
@@ -329,6 +329,24 @@ typedef struct {
 
   bool (*on_calibrate)(const char *cal_id, ad_cal_action_t action, char *why,
                        size_t why_len, void *user);
+
+  /**
+   * A joystick, in the axes a ground station already speaks.
+   *
+   * Every value is -1000 to 1000, which is what MANUAL_CONTROL carries, and
+   * the SDK passes them through without deciding what they mean: a boat steers
+   * with `r` and drives with `x`, a copter does something else entirely, and
+   * the vehicle is the only thing that knows which. Unused axes arrive as
+   * INT16_MAX from a station that is not sending them, and the SDK converts
+   * that to zero so nobody has to know the convention.
+   *
+   * Called at whatever rate the station sends, typically 10 to 50 Hz. It is a
+   * stream rather than a command, so there is no acknowledgement and nothing
+   * is retried: a vehicle that acts on this needs its own deadman, because the
+   * absence of the next message is the only signal that the operator let go.
+   */
+  void (*on_manual)(int16_t x, int16_t y, int16_t z, int16_t r, uint16_t buttons,
+                    void *user);
 
   void    *user;
   uint8_t  system_id;    /**< 0 uses AD_DEFAULT_SYSTEM_ID */

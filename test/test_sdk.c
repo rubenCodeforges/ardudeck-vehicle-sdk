@@ -163,7 +163,7 @@ static const ad_capability_t CAPS = {
   .vendor = "acme", .model = "boat kit", .firmware = "0.4.1",
   .frame = AD_FRAME_SURFACE_BOAT,
   .features = AD_FEAT_PARAMS | AD_FEAT_MISSION | AD_FEAT_COMMANDS |
-              AD_FEAT_CALIBRATION | AD_FEAT_MISSION_READ,
+              AD_FEAT_CALIBRATION | AD_FEAT_MISSION_READ | AD_FEAT_MANUAL_CONTROL,
   .mission_cmds = MISSION_CMDS, .mission_cmd_count = 2, .mission_capacity = 32,
   .modes = MODES, .mode_count = 3,
 };
@@ -171,6 +171,15 @@ static const ad_capability_t CAPS = {
 static uint16_t last_mission_count;
 static bool refuse_mission;
 static uint16_t last_command;
+static int manual_calls;
+static int16_t manual_x, manual_y, manual_z, manual_r;
+static uint16_t manual_buttons;
+
+static void on_manual(int16_t x, int16_t y, int16_t z, int16_t r, uint16_t buttons, void *user) {
+  (void)user;
+  manual_calls++;
+  manual_x = x; manual_y = y; manual_z = z; manual_r = r; manual_buttons = buttons;
+}
 static int command_calls;
 static bool refuse_command;
 static char last_cal[20];
@@ -248,6 +257,7 @@ static ad_config_t make_config(void) {
   cfg.on_mission_read = on_mission_read;
   cfg.on_command = on_command;
   cfg.on_calibrate = on_calibrate;
+  cfg.on_manual = on_manual;
   return cfg;
 }
 
@@ -255,6 +265,7 @@ static void boot_at(uint32_t start) {
   clock_ms = start;
   drain();
   param_saves = 0;
+  manual_calls = 0;
   refuse_mission = false;
   refuse_command = false;
   last_mission_count = 0xFFFF;
@@ -823,6 +834,78 @@ static void send_command_long(uint16_t cmd, const float p[7]) {
   inject(76, 152, buf, sizeof buf);
 }
 
+/**
+ * A joystick, in the axes MANUAL_CONTROL defines.
+ *
+ * Daniel plugged a transmitter into ArduDeck and nothing happened, because the
+ * SDK declared the feature bit and implemented none of it. Bytes taken from
+ * ArduDeck's own generated serializer: x at 0, y at 2, z at 4, r at 6, buttons
+ * at 8 and the target system at 10.
+ */
+static void send_manual_control(int16_t x, int16_t y, int16_t z, int16_t r,
+                                uint16_t buttons, uint8_t target) {
+  uint8_t buf[30];
+  memset(buf, 0, sizeof buf);
+  put_u16(&buf[0], (uint16_t)x);
+  put_u16(&buf[2], (uint16_t)y);
+  put_u16(&buf[4], (uint16_t)z);
+  put_u16(&buf[6], (uint16_t)r);
+  put_u16(&buf[8], buttons);
+  buf[10] = target;
+  inject(69, 243, buf, sizeof buf);
+}
+
+static void test_a_joystick_reaches_the_vehicle(void) {
+  boot();
+  run_ms(100);
+  drain();
+
+  send_manual_control(100, -200, 300, -400, 0x5, 0);
+  CHECK(manual_calls == 1, "called %d times", manual_calls);
+  CHECK(manual_x == 100 && manual_y == -200, "x %d y %d", manual_x, manual_y);
+  CHECK(manual_z == 300 && manual_r == -400, "z %d r %d", manual_z, manual_r);
+  CHECK(manual_buttons == 0x5, "buttons %u", manual_buttons);
+}
+
+static void test_an_unsent_axis_is_not_full_deflection(void) {
+  boot();
+  run_ms(100);
+  drain();
+
+  /*
+   * A station that is not using an axis puts INT16_MAX in it rather than
+   * leaving it out. Taken literally, an untouched throttle is full throttle,
+   * which on a boat means it drives away from the dock on connect.
+   */
+  send_manual_control(32767, 32767, 32767, 500, 0, 0);
+  CHECK(manual_calls == 1, "called %d times", manual_calls);
+  CHECK(manual_x == 0 && manual_y == 0 && manual_z == 0, "unsent axes became %d %d %d",
+        manual_x, manual_y, manual_z);
+  CHECK(manual_r == 500, "the axis that was sent came through as %d", manual_r);
+}
+
+static void test_a_joystick_for_another_vehicle_is_ignored(void) {
+  boot();
+  run_ms(100);
+  drain();
+
+  send_manual_control(100, 0, 0, 0, 0, 99);
+  CHECK(manual_calls == 0, "acted on a joystick addressed elsewhere");
+
+  // Zero means everyone, which is what a station sends before it knows the id.
+  send_manual_control(100, 0, 0, 0, 0, 0);
+  CHECK(manual_calls == 1, "ignored a broadcast joystick");
+}
+
+static void test_a_joystick_is_clamped(void) {
+  boot();
+  run_ms(100);
+  drain();
+
+  send_manual_control(9000, -9000, 0, 0, 0, 0);
+  CHECK(manual_x == 1000 && manual_y == -1000, "clamped to %d and %d", manual_x, manual_y);
+}
+
 static void test_set_mode_reads_the_slot_ardudeck_uses(void) {
   boot();
   run_ms(100);
@@ -1181,6 +1264,10 @@ int main(void) {
   RUN(test_an_ordinary_mission_ack_is_unchanged);
   RUN(test_mission_download);
   RUN(test_command_acknowledged_and_refusals_explained);
+  RUN(test_a_joystick_reaches_the_vehicle);
+  RUN(test_an_unsent_axis_is_not_full_deflection);
+  RUN(test_a_joystick_for_another_vehicle_is_ignored);
+  RUN(test_a_joystick_is_clamped);
   RUN(test_set_mode_reads_the_slot_ardudeck_uses);
   RUN(test_set_mode_is_ignored_without_the_custom_bit);
   RUN(test_takeoff_altitude_comes_from_param7);

@@ -28,6 +28,7 @@ typedef struct {
 #define AD_MSG_PARAM_REQUEST_LIST   ((ad_msg_def_t){    21,   2, 159 })  /* PARAM_REQUEST_LIST */
 #define AD_MSG_PARAM_SET            ((ad_msg_def_t){    23,  23, 168 })  /* PARAM_SET */
 #define AD_MSG_COMMAND_LONG         ((ad_msg_def_t){    76,  33, 152 })  /* COMMAND_LONG */
+#define AD_MSG_MANUAL_CONTROL       ((ad_msg_def_t){    69,  30, 243 })  /* MANUAL_CONTROL */
 #define AD_MSG_COMMAND_ACK          ((ad_msg_def_t){    77,   3, 143 })  /* COMMAND_ACK */
 #define AD_MSG_MISSION_ITEM_INT     ((ad_msg_def_t){    73,  37,  38 })  /* MISSION_ITEM_INT */
 #define AD_MSG_MISSION_REQUEST_INT  ((ad_msg_def_t){    51,   4, 196 })  /* MISSION_REQUEST_INT */

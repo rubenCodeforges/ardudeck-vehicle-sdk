@@ -1,5 +1,7 @@
 #include <string.h>
 
+#include <limits.h>
+
 #include "ad_internal.h"
 
 ad_state_t ad_g;
@@ -363,6 +365,42 @@ static void handle_command(const uint8_t *p, uint16_t len) {
  * builds, so acting on both would switch mode twice and call the vendor twice for one
  * press. The recent-command window suppresses the duplicate.
  */
+/**
+ * One axis of a joystick, with "not sent" turned into zero.
+ *
+ * A station that is not using an axis puts INT16_MAX in it rather than leaving
+ * it out, and a vehicle that took that literally would read an untouched
+ * throttle as full. Everything else is clamped, because a station is free to
+ * send whatever it likes and the vehicle should not have to defend itself.
+ */
+static int16_t manual_axis(const uint8_t *p, uint16_t len, uint16_t off) {
+  const int16_t raw = (int16_t)ad_get_u16(p, len, off);
+  if (raw == INT16_MAX) return 0;
+  if (raw > 1000) return 1000;
+  if (raw < -1000) return -1000;
+  return raw;
+}
+
+/**
+ * A joystick from the ground station.
+ *
+ * Passed straight to the vehicle in the axes MANUAL_CONTROL defines, because
+ * what they mean differs per vehicle and the SDK is the wrong place to decide.
+ * No acknowledgement: this is a stream, and the only honest response to it
+ * stopping is the vehicle's own deadman.
+ */
+static void handle_manual_control(const uint8_t *p, uint16_t len) {
+  const ad_capability_t *c = cfg()->caps;
+  if (!c || !(c->features & AD_FEAT_MANUAL_CONTROL) || !cfg()->on_manual) return;
+
+  // Addressed to this vehicle, or to nobody in particular.
+  const uint8_t target = ad_get_u8(p, len, 10);
+  if (target != 0 && target != ad_g.sysid) return;
+
+  cfg()->on_manual(manual_axis(p, len, 0), manual_axis(p, len, 2), manual_axis(p, len, 4),
+                   manual_axis(p, len, 6), ad_get_u16(p, len, 8), cfg()->user);
+}
+
 static void handle_set_mode(const uint8_t *p, uint16_t len) {
 #if AD_WITH_COMMANDS
   if (ad_g.last_set_mode != 0 && (uint32_t)(ad_g.now - ad_g.last_set_mode) < 2000) return;
@@ -420,6 +458,7 @@ static void dispatch(uint32_t msgid, const uint8_t *p, uint16_t len) {
 
   if (msgid == AD_MSG_COMMAND_LONG.id) { handle_command(p, len); return; }
   if (msgid == AD_MSG_SET_MODE.id)     { handle_set_mode(p, len); return; }
+  if (msgid == AD_MSG_MANUAL_CONTROL.id) { handle_manual_control(p, len); return; }
   if (msgid == AD_MSG_CAL_CONTROL.id)  { ad_cal_handle(p, len); return; }
   if (msgid == AD_MSG_REQUEST.id)      { handle_request(p, len); return; }
 
